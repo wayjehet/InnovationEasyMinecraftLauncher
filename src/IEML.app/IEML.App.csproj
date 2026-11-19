@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>IEML.App</RootNamespace>
+    <AssemblyName>InnovationEasyMinecraftLauncher</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\IEML.Core\IEML.Core.csproj" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.*" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- 種子地圖用的 Cubiomes 原生 DLL（native\README.md 說明如何編譯）；有的話建置時複製到輸出資料夾 -->
+    <None Include="..\..\native\ieml_cubiomes.dll" Condition="Exists('..\..\native\ieml_cubiomes.dll')" Link="ieml_cubiomes.dll" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
