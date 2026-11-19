@@ -11,8 +11,8 @@ public class ModrinthService : IModrinthService
     static HttpClient Create()
     {
         var c = new HttpClient { BaseAddress = new Uri("https://api.modrinth.com/v2/") };
-        // Modrinth asks for an identifying User-Agent. Replace the contact with your own.
-        c.DefaultRequestHeaders.UserAgent.ParseAdd("InnovationEasyLauncher/0.1 (contact: your-email@example.com)");
+        // Modrinth 要求可辨識的 User-Agent（含聯絡方式）：這裡用專案網址。
+        c.DefaultRequestHeaders.UserAgent.ParseAdd("InnovationEasyLauncher/0.1-beta (https://github.com/wayjehet/InnovationEasyMinecraftLauncher)");
         return c;
     }
 
