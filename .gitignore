@@ -3,7 +3,6 @@ bin/
 obj/
 dist/
 publish/
-*.zip
 
 # Visual Studio / Rider / VS Code
 .vs/
