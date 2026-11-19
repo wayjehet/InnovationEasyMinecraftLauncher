@@ -30,6 +30,7 @@ public partial class MainViewModel : ObservableObject
     readonly ILaunchService _launcher;
     readonly MusicService _music = new();
     readonly EasyTierService _easyTier = new();
+    readonly TerracottaService _terracotta = new();
 
     public ObservableCollection<InstanceConfig> Instances { get; } = new();
     public ObservableCollection<Account> Accounts { get; } = new();
@@ -192,6 +193,12 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand] void OpenSeedMap() =>
         new SeedMapWindow(SelectedInstance) { Owner = Application.Current.MainWindow }.Show();
+
+    [RelayCommand] void OpenTerracotta() =>
+        new TerracottaWindow(_terracotta) { Owner = Application.Current.MainWindow }.Show();
+
+    /// 啟動器關閉時結束陶瓦行程
+    public void Shutdown() => _terracotta.StopBlocking();
 
     [RelayCommand] void OpenRoom() =>
         new RoomWindow(_easyTier) { Owner = Application.Current.MainWindow }.Show();

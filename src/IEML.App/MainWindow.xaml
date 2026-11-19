@@ -140,7 +140,7 @@
             </Button>
 
             <Button Height="44" Margin="0,0,0,8" Content="P2P" Style="{StaticResource ArtButton}"
-                    local:ArtProps.File="btn_p2p.png" Command="{Binding OpenRoomCommand}"/>
+                    local:ArtProps.File="btn_p2p.png" Command="{Binding OpenTerracottaCommand}"/>
 
             <Button Height="44" Margin="0,0,0,8" Content="更多" Style="{StaticResource ArtButton}"
                     local:ArtProps.File="btn_more.png" Click="OpenMenu_Click">
@@ -148,6 +148,7 @@
                 <ContextMenu>
                   <MenuItem Header="伺服器查找" Command="{Binding OpenServersCommand}"/>
                   <MenuItem Header="遊戲日誌" Command="{Binding OpenLogCommand}"/>
+                  <MenuItem Header="EasyTier 房間（進階）" Command="{Binding OpenRoomCommand}"/>
                   <MenuItem Header="種子地圖" Command="{Binding OpenSeedMapCommand}"/>
                   <MenuItem Header="帳號管理" Command="{Binding OpenAccountsCommand}"/>
                 </ContextMenu>

@@ -7,22 +7,37 @@ using IEML.Core.Contracts;
 using IEML.Core.Models;
 namespace IEML.Core.Services;
 
-/// CurseForge API 金鑰：使用者自己申請並填入，以 DPAPI 加密存在 %AppData%\InnovationEasyLauncher\curseforge.json，不寫死在程式裡。
+/// CurseForge API 金鑰。優先順序：
+///   1. 使用者自己填的（DPAPI 加密存在 %AppData%\InnovationEasyLauncher\curseforge.json）
+///   2. 打包時內建的（BuiltInSecrets.CurseForgeKey，官方發布版才有；原始碼裡是空的）
+/// 都沒有時，CurseForge 功能提示使用者申請；Modrinth 與本機匯入 .mrpack 不需要金鑰。
 public static class CurseForgeSettings
 {
     static string FilePath => Path.Combine(AppPaths.Root, "curseforge.json");
     class Store { public string? ProtectedKey { get; set; } }
 
-    public static bool HasKey => !string.IsNullOrEmpty(GetKey());
+    public static bool HasUserKey => !string.IsNullOrEmpty(GetUserKey());
+    public static bool HasBuiltInKey => !string.IsNullOrWhiteSpace(BuiltInSecrets.CurseForgeKey);
+    public static bool HasKey => HasUserKey || HasBuiltInKey;
 
-    public static string? GetKey()
+    /// 給介面顯示：目前用的是哪一種金鑰。
+    public static string SourceText =>
+        HasUserKey ? "使用你自己的金鑰"
+        : HasBuiltInKey ? "使用內建金鑰（也可以填自己的覆蓋）"
+        : "尚未設定金鑰：到 console.curseforge.com 免費申請後填入，或改用 Modrinth";
+
+    /// 實際用來呼叫 API 的金鑰（使用者的優先）。
+    public static string? GetKey() => GetUserKey() ?? (HasBuiltInKey ? BuiltInSecrets.CurseForgeKey.Trim() : null);
+
+    static string? GetUserKey()
     {
         try
         {
             if (!File.Exists(FilePath)) return null;
             var s = JsonSerializer.Deserialize<Store>(File.ReadAllText(FilePath));
             if (string.IsNullOrEmpty(s?.ProtectedKey)) return null;
-            return Encoding.UTF8.GetString(ProtectedData.Unprotect(Convert.FromBase64String(s.ProtectedKey), null, DataProtectionScope.CurrentUser));
+            var k = Encoding.UTF8.GetString(ProtectedData.Unprotect(Convert.FromBase64String(s.ProtectedKey), null, DataProtectionScope.CurrentUser));
+            return string.IsNullOrWhiteSpace(k) ? null : k;
         }
         catch { return null; }
     }

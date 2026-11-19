@@ -16,7 +16,7 @@ public partial class LauncherSettingsWindow : Window
     {
         InitializeComponent();
         DataContext = vm;
-        KeyStatus.Text = CurseForgeSettings.HasKey ? "已設定金鑰" : "尚未設定金鑰";
+        KeyStatus.Text = CurseForgeSettings.SourceText;
         VersionText.Text = $"Innovation Easy Minecraft Launcher  Beta {AppInfo.Version}";
         AssetList.Text = $"資料夾：{ArtAssets.UserDir}\n\n" +
             string.Join("\n", AssetNames.Select(n => (ArtAssets.Find(n) is null ? "○ " : "● ") + n)) +
@@ -29,7 +29,7 @@ public partial class LauncherSettingsWindow : Window
         {
             CurseForgeSettings.SetKey(KeyBox.Password);
             KeyBox.Clear();
-            KeyStatus.Text = CurseForgeSettings.HasKey ? "金鑰已儲存" : "金鑰已清除";
+            KeyStatus.Text = CurseForgeSettings.HasUserKey ? "金鑰已儲存" : "已清除你的金鑰。" + CurseForgeSettings.SourceText;
         }
         catch (Exception ex) { KeyStatus.Text = "儲存失敗：" + ex.Message; }
     }

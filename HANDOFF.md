@@ -204,3 +204,22 @@ UI: "新增正版帳號" button; account lists show (正版)/(離線). Uncompile
 ## 網頁版 Claude 追加：卡片前後順序（未編譯、未實測）
 - 接手 `InnovationLauncher_1.zip`（上一個 session 最後停在「更新 HANDOFF 並打包」，拖拉卡片的程式與說明其實已經完整在 zip 裡）。我做了靜態檢查：所有 XAML 事件處理常式都有對應的 code-behind 方法、主畫面所有 `Binding xxxCommand` 都有對應的 ViewModel 指令，沒發現缺漏（這只是字串比對，不等於能編譯）。
 - 補上「按下卡片就拉到最上層」：`CardItem` 加 `Z`（不存檔）、`MainWindow.xaml` 的 `ItemContainerStyle` 加 `Panel.ZIndex` 綁定、`MainWindow.xaml.cs` 的 `Card_Down` 設 `c.Z = ++_zTop`。上一節「尚未做：卡片重疊時的前後順序」現在已處理；吸附格線仍沒做。
+
+
+## 網頁版 Claude 追加：CurseForge 金鑰「使用者優先、打包內建為輔」（未編譯、未實測）
+做法參考 PCL2 / HMCL 的模式（只取「打包時注入 Secret」的概念，**沒有抄它們的程式碼**；PCL2 的授權對大量參考其核心功能有嚴格要求，請不要把 PCL2 程式碼貼進本專案）。
+- 新檔 `Core/Services/BuiltInSecrets.cs`：`CurseForgeKey` 在倉庫裡**永遠是空字串**，真的金鑰絕對不要提交進 git。
+- `CurseForgeSettings`（`CurseForgeService.cs`）：金鑰優先順序＝使用者自己填的 > 打包內建的；新增 `HasUserKey`、`HasBuiltInKey`、`SourceText`（介面顯示目前用哪種；都沒有時提示到 console.curseforge.com 申請或改用 Modrinth）；`GetKey()` 回傳實際使用的金鑰。
+- `CurseForgeWindow.xaml.cs`、`LauncherSettingsWindow.xaml.cs`：狀態文字改用 `SourceText`；清除自己的金鑰後會顯示回到哪種狀態。
+- 新檔 `.github/workflows/build.yml`：在 GitHub Actions（windows-latest、.NET 8）執行 `publish.ps1`；有 Secret `CURSEFORGE_API_KEY` 才在編譯前取代 `BuiltInSecrets.cs` 的空字串，沒有就照常編譯；成品以 artifact 上傳。觸發：手動或推 `v*` 標籤。
+- 還沒有專案金鑰（要向 CurseForge／Overwolf 申請並通過審核），所以目前行為與以前相同：使用者自己填。內建金鑰仍可能被人從 exe 解出，拿到後請當成可更換的專案專用金鑰。
+
+
+## 網頁版 Claude 追加：陶瓦聯機（Terracotta）整合，取代 EasyTier 成為「P2P」預設（未編譯、未實測）
+**依據官方文件** https://burningtnt.github.io/Terracotta/http-api/ （基於 v0.4.2）。陶瓦是 burningtnt 的專案（基於 EasyTier，已被 HMCL、PCL-CE 等接入），房間碼格式 `U/XXXX-XXXX-XXXX-XXXX`，**與 HMCL／PCL-CE 互通**，且不需自己解析 IP。
+**授權**：AGPL-3.0-or-later，附例外條款：「打包／下載未修改的二進位並當獨立行程、透過 HTTP API 互動」不會讓本專案被 AGPL 涵蓋，**但必須在介面明顯處標示陶瓦的版權資訊**（`TerracottaWindow` 頂部已標示，請勿移除）。我們只下載未修改的官方執行檔，不連結、不修改。
+- 新檔 `Core/Services/TerracottaService.cs`：下載官方 Windows 版（GitHub Releases latest，檔名含 windows＋架構、接受 .exe/.zip，有 sha256 digest 就驗證；**我沒有確認附件檔名格式**，找不到時會提示手動把 `terracotta*.exe` 放進 `tools\terracotta\`）→ `terracotta.exe --hmcl <port.json>` 啟動（就緒後檔案會寫入 `{"port":N}`，最久等 15 秒）→ 本機 HTTP API：`GET /state` 每 500 ms 輪詢（只處理 `index` 變大的回應，連續失敗 5 次視為行程結束）、`/state/scanning?player=`（房主）、`/state/guesting?room=&player=`（加入）、`/state/ide`（回待機）、`/panic?peaceful=true`（結束）。狀態：waiting / host-scanning / host-starting / host-ok / guest-connecting / guest-starting / guest-ok / exception(type 0–5)。
+- 新檔 `App/TerracottaWindow.xaml(.cs)`：玩家名、開房、輸入房間碼加入、狀態說明（中文）、房間碼與直連位址（複製）、成員清單、返回待機。
+- 修改 `MainViewModel.cs`：`_terracotta`、`OpenTerracottaCommand`、`Shutdown()`；`MainWindow.xaml`：右欄「P2P」改開陶瓦視窗，原 EasyTier 房間移到「更多 → EasyTier 房間（進階）」；`MainWindow.xaml.cs`：`OnClosed` 呼叫 `Vm.Shutdown()` 結束陶瓦行程。
+- EasyTierService／RoomWindow 沒有刪（保留為進階選項）。若之後確定只用陶瓦，可以移除它們。
+- 待實測：1) Release 附件命名與 .exe／.zip 格式 2) 陶瓦在 Windows 是否需要管理員權限（HMCL 的做法是一般權限啟動，Windows 下 `--hmcl` 行程會 fork 子行程作為真正的工作行程，所以 `Process` 物件不一定代表實際行程，結束靠 `/panic`） 3) 房主流程：進世界→對區域網路開放→開房→host-ok 4) 加入後「陶瓦聯機大廳」是否出現在多人遊戲列表（官方說從這裡加入會略過正版驗證）。

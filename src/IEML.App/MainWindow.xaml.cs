@@ -15,6 +15,12 @@ public partial class MainWindow : Window
         LogoText.Visibility = Logo.Source is null ? Visibility.Visible : Visibility.Collapsed;
     }
 
+    protected override void OnClosed(EventArgs e)
+    {
+        try { Vm.Shutdown(); } catch { }
+        base.OnClosed(e);
+    }
+
     /// 右欄「下載」「更多」：按下去彈出選單（選單項目的指令綁定到 MainViewModel）
     void OpenMenu_Click(object sender, RoutedEventArgs e)
     {

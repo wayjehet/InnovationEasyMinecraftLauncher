@@ -21,7 +21,7 @@ public partial class CurseForgeWindow : Window
         Info.Text = inst is null
             ? "未選擇實例：只能安裝整合包（模組／光影／資源包需要先在主畫面選一個實例）"
             : $"模組／光影／資源包會安裝到：{inst.Name}（{inst.McVersion} / {inst.Loader}）；整合包一律建立新實例";
-        StatusText.Text = CurseForgeSettings.HasKey ? "已設定金鑰，可以搜尋" : "請先填入並儲存 CurseForge API 金鑰（匯入 .mrpack 不需要）";
+        StatusText.Text = CurseForgeSettings.SourceText + (CurseForgeSettings.HasKey ? "，可以搜尋" : "（匯入 .mrpack 不需要金鑰）");
     }
 
     ContentKind Kind => Enum.Parse<ContentKind>((string)((ComboBoxItem)KindBox.SelectedItem).Tag);
@@ -32,7 +32,7 @@ public partial class CurseForgeWindow : Window
         {
             CurseForgeSettings.SetKey(KeyBox.Password);
             KeyBox.Clear();
-            StatusText.Text = CurseForgeSettings.HasKey ? "金鑰已儲存" : "金鑰已清除";
+            StatusText.Text = CurseForgeSettings.HasUserKey ? "金鑰已儲存" : "已清除你的金鑰。" + CurseForgeSettings.SourceText;
         }
         catch (Exception ex) { StatusText.Text = "儲存失敗：" + ex.Message; }
     }
