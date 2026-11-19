@@ -56,6 +56,7 @@ jobs:
             ! -name "$ZIP_NAME" \
             -exec rm -rf {} +
 
+          rm -rf "$SOURCE/.github"
           cp -a "$SOURCE/." .
 
           rm -rf /tmp/innovation-import
