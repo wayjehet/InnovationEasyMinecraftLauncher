@@ -63,7 +63,13 @@ public class AccountService : IAccountService
         if (acc.Type == AccountType.Offline) return MSession.CreateOfflineSession(acc.Name);
         var handler = MicrosoftSessions.CreateHandler(id);
         try { return await handler.AuthenticateSilently(); }
-        catch { return await handler.AuthenticateInteractively(); }   // refresh token expired -> sign in again
+        catch (Exception ex)
+        {
+            // 靜默登入失敗才會再跳登入視窗；把真正原因寫進遊戲日誌，方便查「為什麼又要重新登入」
+            GameLog.Append($"Microsoft 靜默登入失敗（{acc.Name}）：{ex.GetType().Name}: {ex.Message}；快取檔：{MicrosoftSessions.CachePath(id)}"
+                           + (File.Exists(MicrosoftSessions.CachePath(id)) ? "（存在）" : "（不存在）"));
+            return await handler.AuthenticateInteractively();   // refresh token expired -> sign in again
+        }
     }
 
     public async Task SaveRefreshTokenAsync(Guid id, string token)

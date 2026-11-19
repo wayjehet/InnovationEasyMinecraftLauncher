@@ -180,3 +180,27 @@ UI: "新增正版帳號" button; account lists show (正版)/(離線). Uncompile
 - 還沒做：安裝程式／自動更新、圖示、介面美化、Forge 實測、CF 單檔搜尋在介面上與 Modrinth 視窗合併。
 
 建議先 `dotnet build`，優先修：CmlLib 4.x API 名稱、`SharedCache` 的 MinecraftPath 屬性、CF／EasyTier／公開伺服器的欄位名稱。
+
+
+## 網頁版 Claude 追加：主畫面改版（依使用者設計稿）＋素材槽位＋啟動器設定（未編譯、未實測）
+版面比例 左 311 : 中 551 : 右 117（視窗 980x640，可縮放）。
+- **左欄**：IEML 標誌、頭像（點了開帳號管理；正版帳號從 mc-heads.net 抓皮膚頭像）、實例名稱／版本／載入器、帳號下拉、進度條與狀態、啟動、〔實例設置〕〔實例選擇〕。
+- **中欄**：快捷啟動卡片（WrapPanel，數量不限，超過會捲動；空的時候顯示提示）。
+- **右欄**：設置（`LauncherSettingsWindow`）、下載（選單：Modrinth／CurseForge）、P2P（連線房間）、更多（選單：伺服器查找／遊戲日誌／種子地圖／帳號管理）、音樂（彈出播放控制）。
+- 新檔：`Theme.xaml`（顏色與 `ArtButton`／`CardButton` 樣式，集中換皮）、`ArtAssets.cs`（素材載入、`AssetConverter`、`ArtProps.File` 附加屬性、`AppInfo` 版本與專案網址）、`InstancePickerWindow`、`LauncherSettingsWindow`（帳號、CurseForge 金鑰、素材資料夾、關於／Beta）、`Assets/README.txt`（素材檔名與建議尺寸）。
+- **素材**：PNG 放 `%AppData%\InnovationEasyLauncher\Assets\`（優先）或 exe 旁 `Assets\`，檔名見 `Assets/README.txt`；每張圖拉伸撐滿所屬位置，沒放就用預設樣式；換圖後重開啟動器生效。若背景圖已畫好面板外框，把 `Theme.xaml` 的 `PanelBg`／`LineBrush` 改成 `Transparent`。
+- 版本：`IEML.App.csproj` 加 `<Version>0.1.0-beta</Version>`，視窗標題與設定頁顯示 Beta。
+- 主畫面不再有的按鈕（新增／刪除帳號、新增／刪除實例）：帳號全部走「帳號管理」，實例走「實例選擇」視窗；`MainViewModel` 的舊指令保留。
+- 待實測：ContextMenu 的指令綁定、Popup 的 DataContext 與前景色、`mc-heads.net` 頭像是否載入、DataTrigger 的 `{x:Null}` 判斷（沒圖時是否顯示預設框）。
+
+## 網頁版 Claude 追加：快捷啟動卡片可自由拖拉（未編譯、未實測）
+- 中欄改成 Canvas（`MainWindow.xaml` 的 `CardsHost`）：卡片可拖到畫布內任何位置，位置存在 `QuickLaunchCard.X/Y`（`Models.cs`，可為 null＝用預設兩欄排列）。拖拉超過系統的最小拖動距離才算移動；沒拖動＝點一下啟動。
+- `CardItem` 由 record 改成 `ObservableObject`（`X`/`Y` 即時更新、`InstanceId`/`CardId` 用來存回實例設定）。啟動改由 `MainWindow.xaml.cs` 的 `Card_Up` 呼叫 `LaunchCommand`（卡片按鈕不再綁 Command，避免拖完又觸發啟動）。
+- `MainViewModel`：`SetCardsArea`（視窗縮小時把跑出畫面的卡片拉回，只改畫面不改存檔）、`SaveCardPositionAsync`、`ResetCardLayoutCommand`（設置頁「重設快捷卡片位置」）。`InstanceSettingsWindow` 複製卡片時保留 X/Y。
+- 尚未做：卡片重疊時的前後順序（目前以建立順序為準）、吸附格線。
+- 待實測：Button 內拖拉是否順暢（滑鼠捕捉）、放開後不會誤觸啟動、縮小視窗後卡片拉回。
+
+
+## 網頁版 Claude 追加：卡片前後順序（未編譯、未實測）
+- 接手 `InnovationLauncher_1.zip`（上一個 session 最後停在「更新 HANDOFF 並打包」，拖拉卡片的程式與說明其實已經完整在 zip 裡）。我做了靜態檢查：所有 XAML 事件處理常式都有對應的 code-behind 方法、主畫面所有 `Binding xxxCommand` 都有對應的 ViewModel 指令，沒發現缺漏（這只是字串比對，不等於能編譯）。
+- 補上「按下卡片就拉到最上層」：`CardItem` 加 `Z`（不存檔）、`MainWindow.xaml` 的 `ItemContainerStyle` 加 `Panel.ZIndex` 綁定、`MainWindow.xaml.cs` 的 `Card_Down` 設 `c.Z = ++_zTop`。上一節「尚未做：卡片重疊時的前後順序」現在已處理；吸附格線仍沒做。

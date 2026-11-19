@@ -38,4 +38,7 @@ public class QuickLaunchCard
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid AccountId { get; set; }
+    /// <summary>主畫面卡片位置（拖拉後儲存）；null＝還沒擺過，用預設排列。</summary>
+    public double? X { get; set; }
+    public double? Y { get; set; }
 }
