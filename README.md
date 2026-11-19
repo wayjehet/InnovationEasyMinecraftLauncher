@@ -5,23 +5,29 @@
 > ⚠️ **Beta / 開發中**
 > 專案目前處於早期開發階段，功能陸續加入中，尚未經過完整測試，可能有錯誤。歡迎回報問題。
 
+> 🤖 **AI 協同製作聲明**
+> 本專案大部分程式碼、文件與介面預覽由 AI（Claude）協助撰寫，再由作者整合與測試。詳見下方〈[AI 協同製作提醒](#ai-協同製作提醒)〉。
+
 ## 功能
 
 - **實例管理**：多個獨立實例，各自的版本、載入器、Java、記憶體與 JVM 參數
 - **帳號**：離線帳號與 Microsoft 正版登入，帳號可綁定實例；主畫面快速啟動卡片可用不同帳號啟動同一實例
-- **載入器**：Fabric、Quilt、Forge、NeoForge（含 1.20.1 舊命名）
+- **載入器**：Fabric、Quilt、Forge、NeoForge（含 1.20.1 舊命名）；實例設置可挑選載入器版本（自動＝最新穩定版，也可手動輸入），換載入器種類時會提醒模組可能失效
 - **Java 管理**：自動偵測本機 Java，找不到合適版本時從 Adoptium 下載
 - **內容安裝**：
   - Modrinth：模組、光影、資源包、整合包（`.mrpack`）
   - CurseForge：模組、光影、資源包、整合包（需自備 API 金鑰）
   - 本機匯入整合包（CurseForge `.zip` / Modrinth `.mrpack`）
-  - 模組自動安裝必要相依；下載後檢查 SHA-1
+  - 模組自動安裝必要相依；下載後檢查 SHA-1；優先安裝正式版
+  - Modrinth 搜尋篩選：分類、載入器（光影為 Iris / OptiFine / Canvas）、執行端（客戶端／伺服器）、Minecraft 版本；排序（相關度、下載數、追蹤數、最新、最近更新）；分頁載入更多
+  - 已安裝內容管理：列出模組／光影／資源包，勾選＝啟用／停用（檔名加 `.disabled`，不刪檔）、刪除、檢查並更新到新的正式版
 - **伺服器**：伺服器查找（Server List Ping、SRV 解析）、收藏、公開伺服器搜尋
 - **連線房間**：透過 [EasyTier](https://github.com/EasyTier/EasyTier) 建立虛擬區域網路，與朋友連線
 - **種子地圖**：以 [Cubiomes](https://github.com/Cubitect/cubiomes) 查詢結構與群系（需自行編譯原生 DLL，見 `native/README.md`）
 - **遊戲日誌**：即時顯示遊戲輸出，並自動遮蔽存取權杖
 - **音樂播放**：主畫面內建簡易音樂播放器
 - **共用快取**：不同實例共用 libraries / assets，節省空間與下載時間
+- **下載管理器**（`Services/Download/`，整合中）：暫存檔 `.part` 驗證後改名、HTTP Range 暫停／繼續、自動重試、全域並行上限；呼叫端替換步驟見 [`docs/DOWNLOAD-INTEGRATION.md`](docs/DOWNLOAD-INTEGRATION.md)
 
 ## 系統需求
 
@@ -82,6 +88,7 @@ src/
   IEML.Core/   不含 UI：資料模型、Contracts（服務介面）、Services（實作）
   IEML.App/    WPF 介面
 native/        Cubiomes 的 C 包裝與編譯說明
+docs/          介面預覽（ui-preview，用瀏覽器開）、下載管理器整合說明
 HANDOFF.md     開發進度與待實測清單
 ```
 
@@ -90,8 +97,22 @@ HANDOFF.md     開發進度與待實測清單
 ## 已知限制
 
 - 專案仍在早期階段，部分功能尚未實測（詳見 `HANDOFF.md` 的待實測清單）
+- 部分程式碼由 AI 在沒有編譯環境的情況下撰寫，第一次建置可能需要修正編譯錯誤
+- 下載管理器尚未接到所有下載呼叫端；CmlLib 下載的原版檔案與 Forge / NeoForge 安裝程式的函式庫不經過它
+- CurseForge 視窗仍是簡單搜尋，尚無 Modrinth 那樣的篩選
 - 介面仍使用 WPF 預設樣式，之後會美化
 - 目前僅支援 Windows
+
+## AI 協同製作提醒
+
+本專案由作者與 AI 助手（Anthropic Claude）協同製作。使用或貢獻前請知道：
+
+- **AI 會出錯**：AI 產生的程式碼可能有錯誤、過時的 API 用法或安全疑慮。許多部分是憑記憶撰寫、**尚未編譯或實測**，進度與待驗證項目見 `HANDOFF.md`。
+- **請自行審查**：重要功能（Microsoft 登入、權杖加密、檔案下載與解壓、以管理員權限啟動 EasyTier）在日常使用前，建議先閱讀原始碼。
+- **外部服務細節可能有誤**：EasyTier 參數、公開伺服器 API 欄位、Modrinth／CurseForge 回應格式等，AI 可能記錯，請以官方文件為準。
+- **貢獻請標明**：若你的 Pull Request 大量使用 AI 產生，請在說明中註明，並確認你已實際建置與測試。
+- **授權與來源**：AI 產生的內容可能與既有程式碼相似；如發現侵權疑慮，請開 Issue 告知，我們會儘快處理。
+- **不收集資料**：AI 協作僅發生在開發階段，啟動器本身不會把你的帳號、權杖或日誌送給任何 AI 服務。
 
 ## 回報問題
 
@@ -107,6 +128,6 @@ HANDOFF.md     開發進度與待實測清單
 
 ## 致謝
 
-CmlLib.Core、Fabric、Quilt、Forge、NeoForge、Modrinth、CurseForge、EasyTier、Cubiomes、Adoptium 等專案與服務。
+CmlLib.Core、Fabric、Quilt、Forge、NeoForge、Modrinth、CurseForge、EasyTier、Cubiomes、Adoptium 等專案與服務，以及協助開發的 AI 工具。
 
 本專案與 Mojang Studios、Microsoft 無關，亦非其官方產品。Minecraft 是 Mojang Studios 的商標。
