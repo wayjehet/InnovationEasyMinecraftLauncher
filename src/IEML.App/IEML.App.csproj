@@ -7,7 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>IEML.App</RootNamespace>
     <AssemblyName>InnovationEasyMinecraftLauncher</AssemblyName>
-    <Version>0.1.0-beta</Version>
+    <Version>1.0.0</Version>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\IEML.Core\IEML.Core.csproj" />
