@@ -31,13 +31,31 @@ public interface ILaunchService
 }
 
 public enum ContentKind { Mod, ResourcePack, Shader, Modpack }
-public record ContentHit(string ProjectId, string Title, string Description, string? IconUrl, ContentKind Kind);
+public record ContentHit(string ProjectId, string Title, string Description, string? IconUrl, ContentKind Kind,
+    long Downloads = 0, string? Author = null)
+{
+    public string DownloadsText => Downloads >= 1_000_000 ? $"{Downloads / 1_000_000.0:0.#}M 下載"
+        : Downloads >= 1_000 ? $"{Downloads / 1_000.0:0.#}K 下載" : $"{Downloads} 下載";
+    public string AuthorText => string.IsNullOrEmpty(Author) ? "" : "作者：" + Author;
+}
+/// <summary>Modrinth 搜尋條件。Sort：relevance / downloads / follows / newest / updated。Environment：null / client / server。</summary>
+public record ModrinthQuery(string Text, ContentKind Kind, string? McVersion = null, string? Loader = null,
+    string? Category = null, string? Environment = null, string Sort = "relevance", int Offset = 0, int Limit = 20);
+public record ContentPage(IReadOnlyList<ContentHit> Hits, int Total);
+public record FilterOption(string Id, string Name);
+public record UpdateInfo(string OldPath, string NewFileName, string Url, string? Sha1, string VersionName);
 
 public interface IModrinthService
 {
     Task<IReadOnlyList<ContentHit>> SearchAsync(string query, ContentKind kind, string mcVersion, LoaderType? loader);
     Task InstallAsync(Guid instanceId, string projectId, ContentKind kind, CancellationToken ct = default);
     Task<Guid> InstallModpackAsync(string projectId, CancellationToken ct = default); // returns new instance id
+    // --- Update 6：篩選／排序／分頁、已安裝內容更新 ---
+    Task<ContentPage> SearchAsync(ModrinthQuery q, CancellationToken ct = default);
+    Task<IReadOnlyList<FilterOption>> GetCategoriesAsync(ContentKind kind, CancellationToken ct = default);
+    Task<IReadOnlyList<FilterOption>> GetLoadersAsync(ContentKind kind, CancellationToken ct = default);
+    Task<IReadOnlyList<UpdateInfo>> CheckUpdatesAsync(Guid instanceId, ContentKind kind, CancellationToken ct = default);
+    Task ApplyUpdateAsync(UpdateInfo update, CancellationToken ct = default);
 }
 
 public record ServerStatus(string Address, bool Online, string Motd, int Players, int MaxPlayers, string Version, int LatencyMs);

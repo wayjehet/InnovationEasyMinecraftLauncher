@@ -223,3 +223,64 @@ UI: "新增正版帳號" button; account lists show (正版)/(離線). Uncompile
 - 修改 `MainViewModel.cs`：`_terracotta`、`OpenTerracottaCommand`、`Shutdown()`；`MainWindow.xaml`：右欄「P2P」改開陶瓦視窗，原 EasyTier 房間移到「更多 → EasyTier 房間（進階）」；`MainWindow.xaml.cs`：`OnClosed` 呼叫 `Vm.Shutdown()` 結束陶瓦行程。
 - EasyTierService／RoomWindow 沒有刪（保留為進階選項）。若之後確定只用陶瓦，可以移除它們。
 - 待實測：1) Release 附件命名與 .exe／.zip 格式 2) 陶瓦在 Windows 是否需要管理員權限（HMCL 的做法是一般權限啟動，Windows 下 `--hmcl` 行程會 fork 子行程作為真正的工作行程，所以 `Process` 物件不一定代表實際行程，結束靠 `/panic`） 3) 房主流程：進世界→對區域網路開放→開房→host-ok 4) 加入後「陶瓦聯機大廳」是否出現在多人遊戲列表（官方說從這裡加入會略過正版驗證）。
+
+## 網頁版 Claude 追加（第二輪）：介面改版、Terracotta 修正、預覽稿（全部未編譯、未實測）
+
+### 已完成（都在這份 zip 裡）
+- `TerracottaService.cs`：新增 `CleanupStale()`，`EnsureStartedAsync` 重啟前先清掉舊的輪詢／HttpClient／行程（陶瓦異常結束 `stopped` 後再開房不會留殘骸）。
+- `Theme.xaml` 全面換成網頁（InnovationExtremeStudio）配色：`WindowBg #0F0F0F`、`PanelBg #1C1C1C`、`LineBrush #333`、強調色 `AccentBrush #00FFFF`、`OnAccentBrush #0F0F0F`。
+  - `ArtButton`：青底黑字粗體、圓角 5、滑過發光並上浮 2px；沒指定樣式的 `Button` 也套同一外觀（implicit style，BasedOn ArtButton）。
+  - `CardButton`：#1C1C1C 底、#333 邊框，滑過邊框變青＋微發光。
+  - `NavButton`：右欄純文字選單鈕，滑過文字變青＋左側亮條。
+  - `NavIcon`：向量圖標用的 `Path` 樣式，`Stroke` 綁到所屬 Button 的 `Foreground`（滑過自動變色）。
+  - 若 Assets 有放對應 PNG，ArtButton／CardButton 仍優先顯示圖片。
+- `MainWindow.xaml`：
+  - 背景改成程式繪製的深綠漸層（`#0F1F1A → #12302A → #0F0F0F`）；`Assets\background.png` 存在時蓋過它。
+  - 三個面板合成**單一外框＋兩條分隔線**（照使用者草圖）；右欄改 `NavButton`。
+  - 右欄「設置／下載／P2P／更多」前面有程式繪製的向量圖標（`Viewbox 24` ＋ `Canvas 24` ＋ `Path`，線寬 2.2）；「音樂」用文字 `♪ 音樂`。
+- `MainViewModel.cs`：卡片預設排列改成上排兩張（右邊略低 14px）、第三張置中在下（只影響還沒擺過位置的卡片）。
+- `Assets\icon_*.png`（settings／download／p2p／more）：使用者給的圖，**目前程式已不使用**，可刪。
+- `.github/workflows/build.yml`：沒進 repo（用 Unzip workflow 時被 `workflows` 權限擋下）。使用者說會從 VS Code 推；Unzip workflow 要用「`unzip -o … -x ".github/*"`＋沒變更就略過 commit」那版。
+
+### 預覽稿（HTML，僅示意，不是 WPF）
+https://claude.ai/artifact/TirswMEzdA8uzL7dUzt1tT ——使用者看過，說「還挺好」，這是**下一步要搬進 WPF 的設計依據**。
+
+### 下一步（尚未做，使用者已確認的需求）
+1. **啟動時沒有卡片**：中間顯示空狀態與「＋ 新增卡片」。（目前 WPF 已有「還沒有快捷啟動卡片」文字，但沒有按鈕。）
+2. **卡片內容**：小頭像＋實例名＋帳號，下面兩顆按鈕「啟動」「設置」（設置 → 卡片設置頁：改實例／帳號、刪除卡片）。卡片仍可拖動、位置要存。
+3. **每個功能都是獨立頁面**（不要跳視窗／選單）：點右欄項目時，中欄換成該頁，頁首有「返回」，再點同一項回首頁；右欄該項高亮。頁面：設置、下載、P2P、更多、音樂、卡片設置。
+4. **設置頁加顏色設定**：強調色（按鈕／滑過／進度條）、圖標線條色、外框與分隔線色；六個色塊＋自訂取色＋「恢復預設」；要存檔（下次開啟還在）。實作建議：把 `AccentBrush`／`LineBrush`／圖標色改成可動態更新的 `DynamicResource`，存進設定 JSON。
+5. **下載頁（使用者特別要求，之前漏了）**：五個分頁 ——
+   - 遊戲：左邊版本清單（正式版／快照／舊版切換，顯示發布日期），右邊實例名稱（依版本＋載入器自動命名，可改）、載入器（原版／Fabric／Forge／NeoForge／Quilt；快照與舊版只能原版）、載入器版本下拉、安裝進度條，完成後建立實例並選為目前實例。接現有 `VersionService`、`LoaderService`。
+   - 模組／光影／資源包：Modrinth／CurseForge 切換、搜尋、安裝到哪個實例的下拉。接 `ModrinthService`、`CurseForgeService`。
+   - 整合包：按鈕是「安裝為新實例」。
+6. 現有的 `ContentWindow`、`CurseForgeWindow`、`RoomWindow`／`TerracottaWindow`、`LauncherSettingsWindow` 等視窗，搬成頁面（UserControl）時邏輯盡量沿用，只換外殼。陶瓦頁上必須保留版權標示（AGPL 例外條款）：「陶瓦聯機 Terracotta © burningtnt（AGPL-3.0）」。
+
+### 還沒驗證／已知風險
+- 整個專案**從未編譯**。推上 GitHub 後若 Actions 報錯，先看 `Publish` 步驟的 `error CS…`／`error MC…`。
+- 陶瓦 Release 附件檔名是猜的（含 windows＋x86_64、.exe/.zip）；找不到會提示手動放 `tools\terracotta\terracotta*.exe`。
+- 向量圖標用 `Viewbox` ＋ `Canvas`，`Stroke` 綁 `RelativeSource AncestorType=Button`；若綁定警告或不變色，改成在 `NavButton` 範本裡直接放 `ContentPresenter` 並以 `TextElement.Foreground` 傳遞。
+- 使用者希望整體**更專業**；下載頁漏掉實例／載入器就是被點名的例子。搬頁面時注意資訊完整度，不要只放示意項目。
+
+
+## UI 改版設計稿（網頁版 Claude，尚未搬進 WPF）
+- 互動預覽：`docs/ui-preview/ieml-ui-preview.html`（瀏覽器直接開；可拖卡片、切頁面、選載入器版本、項目詳情頁選過往版本、必要／可選前置、顏色設定、動畫）
+- 實作說明：`docs/ui-preview/UI-SPEC.md`（版面、頁面對應的 Service、需新增的後端方法、WPF 動畫對照、驗收清單）
+- 要做的事：把中欄改成「首頁卡片＋獨立頁面（UserControl）」，右欄切換；新增 `GetVersionsAsync`／`InstallVersionAsync`、前置分類（必要／可選）、載入器版本清單列舉、顏色設定存檔。Contracts.cs 不改，新增方法放新檔案。
+
+
+## Update 6 — 內容篩選、已安裝管理、載入器版本切換（未編譯、未實測）
+**沒有 .NET 環境，請先 `dotnet build` 修正錯誤。**
+
+Contracts.cs（只加不改既有簽章）：`ContentHit` 多了選填的 `Downloads`、`Author`；新增 `ModrinthQuery`、`ContentPage`、`FilterOption`、`UpdateInfo`；
+`IModrinthService` 新增 `SearchAsync(ModrinthQuery)`、`GetCategoriesAsync`、`GetLoadersAsync`、`CheckUpdatesAsync`、`ApplyUpdateAsync`。
+
+- `ModrinthService`：facets 支援分類／載入器（光影為 iris/optifine/canvas）／執行端（client/server）／MC 版本；排序（相關度、下載、追蹤、最新、更新）；offset 分頁；
+  分類與載入器清單從 `tag/category`、`tag/loader` 取得（失敗就不顯示）；安裝優先挑 release 版；`version_files/update` 檢查更新（只推 release），更新時先下載驗證再刪舊檔，保留 `.disabled` 狀態。
+- `InstalledContentService`（新）：列出 mods/shaderpacks/resourcepacks、停用（加 `.disabled`）、刪除。
+- `LoaderVersionService`（新）：Fabric/Quilt（meta API）、NeoForge（含 1.20.1 舊命名）、Forge（maven-metadata）可用版本，新→舊、穩定版在前。
+- `ContentWindow`：分頁籤「搜尋與安裝」（篩選列、圖示、下載數、載入更多）＋「已安裝管理」（勾選＝啟用／停用、刪除、開資料夾、檢查／全部更新）。
+- `InstanceSettingsWindow`：新增「載入器版本」可編輯下拉（自動＝最新穩定版，可手打）；換載入器種類且已有模組時先警告；MC 版本改了而載入器版本不在新清單會清成自動。
+
+可疑處：Modrinth 分類名稱的中文對照表是手寫的（沒對到就顯示原名）；`file` 修飾詞沒用到；CurseForgeWindow 沒有動，仍是舊的單純搜尋。
+測試清單：模組→依分類/排序/執行端搜尋→載入更多；光影選 iris；整合包選載入器；已安裝頁停用→遊戲內不載入；檢查更新→全部更新；實例設置換 Fabric 版本→啟動確認用的是選的版本。

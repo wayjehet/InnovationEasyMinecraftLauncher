@@ -5,6 +5,16 @@
         Title="Innovation Easy Minecraft Launcher · Beta" Width="980" Height="640" MinWidth="784" MinHeight="512"
         Background="{StaticResource WindowBg}" Foreground="{StaticResource TextBrush}">
   <Grid>
+    <!-- 程式繪製的簡潔背景（同網頁橫幅的深綠漸層）；Assets\background.png 存在時會蓋過它 -->
+    <Rectangle IsHitTestVisible="False">
+      <Rectangle.Fill>
+        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+          <GradientStop Color="#FF0F1F1A" Offset="0"/>
+          <GradientStop Color="#FF12302A" Offset="0.5"/>
+          <GradientStop Color="#FF0F0F0F" Offset="1"/>
+        </LinearGradientBrush>
+      </Rectangle.Fill>
+    </Rectangle>
     <!-- 背景圖：Assets\background.png（撐滿並裁掉多出的邊） -->
     <Image Stretch="UniformToFill" Source="{Binding Converter={StaticResource Asset}, ConverterParameter=background.png}"/>
 
@@ -15,9 +25,14 @@
         <ColumnDefinition Width="117*" MinWidth="96"/>
       </Grid.ColumnDefinitions>
 
+      <!-- 單一外框＋兩條分隔線（照草圖） -->
+      <Border Grid.ColumnSpan="3" CornerRadius="10" Background="{StaticResource PanelBg}"
+              BorderBrush="{StaticResource LineBrush}" BorderThickness="1"/>
+      <Rectangle Grid.Column="0" Width="1" HorizontalAlignment="Right" Margin="0,1" Fill="{StaticResource LineBrush}"/>
+      <Rectangle Grid.Column="1" Width="1" HorizontalAlignment="Right" Margin="0,1" Fill="{StaticResource LineBrush}"/>
+
       <!-- ============ 左欄：標誌／頭像／狀態／啟動 ============ -->
-      <Border Grid.Column="0" Margin="0,0,8,0" Padding="14" CornerRadius="8"
-              Background="{StaticResource PanelBg}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1">
+      <Border Grid.Column="0" Margin="0" Padding="14" CornerRadius="10">
         <Grid>
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -79,8 +94,7 @@
       </Border>
 
       <!-- ============ 中欄：快捷啟動卡片（數量不限，超過會捲動） ============ -->
-      <Border Grid.Column="1" Margin="0,0,8,0" Padding="14" CornerRadius="8"
-              Background="{StaticResource PanelBg}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1">
+      <Border Grid.Column="1" Margin="0" Padding="14" CornerRadius="10">
         <Grid>
           <!-- 畫布：卡片可以拖到任何位置（位置會存起來）；點一下啟動，拖拉超過一小段距離才算移動 -->
           <ItemsControl x:Name="CardsHost" ItemsSource="{Binding Cards}" ClipToBounds="True" SizeChanged="CardsHost_SizeChanged">
@@ -120,17 +134,27 @@
       </Border>
 
       <!-- ============ 右欄：設置／下載／P2P／更多／音樂 ============ -->
-      <Border Grid.Column="2" Padding="10" CornerRadius="8"
-              Background="{StaticResource PanelBg}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1">
+      <Border Grid.Column="2" Padding="10" CornerRadius="10">
         <Grid>
           <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
 
           <StackPanel Grid.Row="0">
-            <Button Height="44" Margin="0,0,0,8" Content="設置" Style="{StaticResource ArtButton}"
-                    local:ArtProps.File="btn_settings.png" Command="{Binding OpenLauncherSettingsCommand}"/>
+            <Button Height="44" Style="{StaticResource NavButton}"
+                    local:ArtProps.File="btn_settings.png" Command="{Binding OpenLauncherSettingsCommand}">
+              <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <Viewbox Width="24" Height="24" Margin="0,0,8,0"><Canvas Width="24" Height="24"><Path Style="{StaticResource NavIcon}" Data="M14.6,12 A2.6,2.6 0 1 1 9.4,12 A2.6,2.6 0 1 1 14.6,12 Z M18.2,12 A6.2,6.2 0 1 1 5.8,12 A6.2,6.2 0 1 1 18.2,12 Z M20.4,12 L22.9,12 M17.94,17.94 L19.71,19.71 M12,20.4 L12,22.9 M6.06,17.94 L4.29,19.71 M3.6,12 L1.1,12 M6.06,6.06 L4.29,4.29 M12,3.6 L12,1.1 M17.94,6.06 L19.71,4.29"/></Canvas></Viewbox>
+                <TextBlock Text="設置" VerticalAlignment="Center"/>
+              </StackPanel>
+            </Button>
 
-            <Button Height="44" Margin="0,0,0,8" Content="下載" Style="{StaticResource ArtButton}"
+            <Button Height="44" Style="{StaticResource NavButton}"
                     local:ArtProps.File="btn_download.png" Click="OpenMenu_Click">
+              <Button.Content>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                  <Viewbox Width="24" Height="24" Margin="0,0,8,0"><Canvas Width="24" Height="24"><Path Style="{StaticResource NavIcon}" Data="M12,3 L12,15.5 M6.5,10.5 L12,16 L17.5,10.5 M4.5,20.5 L19.5,20.5"/></Canvas></Viewbox>
+                  <TextBlock Text="下載" VerticalAlignment="Center"/>
+                </StackPanel>
+              </Button.Content>
               <Button.ContextMenu>
                 <ContextMenu>
                   <MenuItem Header="Modrinth（模組／光影／資源包／整合包）" Command="{Binding OpenContentCommand}"/>
@@ -139,11 +163,22 @@
               </Button.ContextMenu>
             </Button>
 
-            <Button Height="44" Margin="0,0,0,8" Content="P2P" Style="{StaticResource ArtButton}"
-                    local:ArtProps.File="btn_p2p.png" Command="{Binding OpenTerracottaCommand}"/>
+            <Button Height="44" Style="{StaticResource NavButton}"
+                    local:ArtProps.File="btn_p2p.png" Command="{Binding OpenTerracottaCommand}">
+              <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <Viewbox Width="24" Height="24" Margin="0,0,8,0"><Canvas Width="24" Height="24"><Path Style="{StaticResource NavIcon}" Data="M9,3 H15 V8 H9 Z M12,8 V13 M5,13 H19 M5,13 V16 M19,13 V16 M2.5,16 H7.5 V21 H2.5 Z M16.5,16 H21.5 V21 H16.5 Z"/></Canvas></Viewbox>
+                <TextBlock Text="P2P" VerticalAlignment="Center"/>
+              </StackPanel>
+            </Button>
 
-            <Button Height="44" Margin="0,0,0,8" Content="更多" Style="{StaticResource ArtButton}"
+            <Button Height="44" Style="{StaticResource NavButton}"
                     local:ArtProps.File="btn_more.png" Click="OpenMenu_Click">
+              <Button.Content>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                  <Viewbox Width="24" Height="24" Margin="0,0,8,0"><Canvas Width="24" Height="24"><Path Style="{StaticResource NavIcon}" Data="M3.5,3.5 H10 V10 H3.5 Z M14,3.5 H20.5 V10 H14 Z M3.5,14 H10 V20.5 H3.5 Z"/></Canvas></Viewbox>
+                  <TextBlock Text="更多" VerticalAlignment="Center"/>
+                </StackPanel>
+              </Button.Content>
               <Button.ContextMenu>
                 <ContextMenu>
                   <MenuItem Header="伺服器查找" Command="{Binding OpenServersCommand}"/>
@@ -156,12 +191,12 @@
             </Button>
           </StackPanel>
 
-          <Button Grid.Row="1" x:Name="MusicBtn" Height="44" Content="音樂" Style="{StaticResource ArtButton}"
+          <Button Grid.Row="1" x:Name="MusicBtn" Height="44" Content="♪ 音樂" Style="{StaticResource NavButton}"
                   local:ArtProps.File="btn_music.png" Click="Music_Click"/>
 
           <Popup x:Name="MusicPopup" PlacementTarget="{Binding ElementName=MusicBtn}" Placement="Left"
                  StaysOpen="False" AllowsTransparency="True">
-            <Border Width="270" Padding="12" CornerRadius="8" Background="#F0141820"
+            <Border Width="270" Padding="12" CornerRadius="10" Background="#F01C1C1C"
                     BorderBrush="{StaticResource LineBrush}" BorderThickness="1"
                     TextElement.Foreground="{StaticResource TextBrush}">
               <StackPanel>

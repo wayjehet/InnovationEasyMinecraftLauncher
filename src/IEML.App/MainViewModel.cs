@@ -110,8 +110,9 @@ public partial class MainViewModel : ObservableObject
                 {
                     InstanceId = i.Id, CardId = c.Id, InstanceName = i.Name, AccountName = acc.Name,
                     LaunchCommand = new AsyncRelayCommand(() => RunLaunch(iid, aid)),
-                    X = c.X ?? (k % 2) * (CardWidth + 10),          // 還沒擺過：預設兩欄排列
-                    Y = c.Y ?? (k / 2) * (CardHeight + 10)
+                    // 還沒擺過：預設照草圖——上排兩張（右邊略低）、第三張置中在下，之後的往下排
+                    X = c.X ?? (k == 2 ? (CardWidth + 10) / 2.0 : (k % 2) * (CardWidth + 10)),
+                    Y = c.Y ?? (k / 2) * (CardHeight + 10) + (k % 2 == 1 ? 14 : 0)
                 });
             }
         }

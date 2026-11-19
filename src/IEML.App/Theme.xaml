@@ -1,35 +1,45 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:local="clr-namespace:IEML.App">
-  <!-- 換皮集中在這裡：顏色改這幾個 Brush；若你的背景圖已經畫好面板外框，把 PanelBg / LineBrush 改成 Transparent -->
+  <!-- 配色比照 InnovationExtremeStudio 網頁：深色底、#1C1C1C 卡片、#333 邊框、青色 #00FFFF 強調。
+       所有按鈕都由程式繪製；若在 Assets 放了對應的 PNG，仍會優先顯示圖片。 -->
   <local:AssetConverter x:Key="Asset"/>
-  <SolidColorBrush x:Key="WindowBg" Color="#FF14181D"/>
-  <SolidColorBrush x:Key="PanelBg" Color="#990B0E12"/>
-  <SolidColorBrush x:Key="LineBrush" Color="#55FFFFFF"/>
-  <SolidColorBrush x:Key="TextBrush" Color="#FFF2F2F2"/>
-  <SolidColorBrush x:Key="MutedBrush" Color="#FFA8B0B8"/>
+  <SolidColorBrush x:Key="WindowBg" Color="#FF0F0F0F"/>
+  <SolidColorBrush x:Key="PanelBg" Color="#FF1C1C1C"/>
+  <SolidColorBrush x:Key="LineBrush" Color="#FF333333"/>
+  <SolidColorBrush x:Key="TextBrush" Color="#FFFFFFFF"/>
+  <SolidColorBrush x:Key="MutedBrush" Color="#FF888888"/>
+  <SolidColorBrush x:Key="AccentBrush" Color="#FF00FFFF"/>
+  <SolidColorBrush x:Key="OnAccentBrush" Color="#FF0F0F0F"/>
 
-  <!-- 圖片按鈕：有圖就只顯示圖（圖上自己畫文字）；沒圖就顯示預設框與文字 -->
+  <DropShadowEffect x:Key="GlowEffect" Color="#00FFFF" BlurRadius="16" ShadowDepth="0" Opacity="0.85"/>
+  <DropShadowEffect x:Key="SoftGlowEffect" Color="#00FFFF" BlurRadius="14" ShadowDepth="0" Opacity="0.25"/>
+
+  <!-- 主按鈕：青底黑字粗體、圓角 5，滑過發光並上浮（同網頁的 button） -->
   <Style x:Key="ArtButton" TargetType="Button">
-    <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+    <Setter Property="Foreground" Value="{StaticResource OnAccentBrush}"/>
+    <Setter Property="FontWeight" Value="Bold"/>
     <Setter Property="Cursor" Value="Hand"/>
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="Button">
-          <Grid x:Name="Root" Background="Transparent">
-            <Border x:Name="Fallback" Visibility="Collapsed" Background="{StaticResource PanelBg}"
-                    BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="6"/>
+          <Grid x:Name="Root" Background="Transparent" RenderTransformOrigin="0.5,0.5">
+            <Grid.RenderTransform><TranslateTransform Y="0"/></Grid.RenderTransform>
+            <Border x:Name="Fallback" Visibility="Collapsed" Background="{StaticResource AccentBrush}" CornerRadius="5"/>
             <Image x:Name="Art" Stretch="Fill"
                    Source="{Binding (local:ArtProps.File), RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource Asset}}"/>
-            <ContentPresenter x:Name="Label" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="6,2"/>
+            <ContentPresenter x:Name="Label" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="12,6"/>
           </Grid>
           <ControlTemplate.Triggers>
             <DataTrigger Binding="{Binding Source, ElementName=Art}" Value="{x:Null}">
               <Setter TargetName="Fallback" Property="Visibility" Value="Visible"/>
               <Setter TargetName="Label" Property="Visibility" Value="Visible"/>
             </DataTrigger>
-            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Root" Property="Opacity" Value="0.85"/></Trigger>
-            <Trigger Property="IsPressed" Value="True"><Setter TargetName="Root" Property="Opacity" Value="0.65"/></Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Root" Property="Effect" Value="{StaticResource GlowEffect}"/>
+              <Setter TargetName="Root" Property="RenderTransform"><Setter.Value><TranslateTransform Y="-2"/></Setter.Value></Setter>
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True"><Setter TargetName="Root" Property="Opacity" Value="0.75"/></Trigger>
             <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Root" Property="Opacity" Value="0.4"/></Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
@@ -37,16 +47,22 @@
     </Setter>
   </Style>
 
-  <!-- 卡片按鈕：底圖（有就用）＋ 內容永遠顯示（實例名稱、帳號名稱、頭像等） -->
+  <!-- 沒指定樣式的一般按鈕（音樂播放控制、各視窗內的按鈕）也套用同一個外觀 -->
+  <Style TargetType="Button" BasedOn="{StaticResource ArtButton}">
+    <Setter Property="Padding" Value="10,5"/>
+  </Style>
+
+  <!-- 卡片按鈕：#1C1C1C 底、#333 邊框，滑過邊框變青色並微發光（同網頁的 .card）；內容永遠顯示 -->
   <Style x:Key="CardButton" TargetType="Button">
     <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
     <Setter Property="Cursor" Value="Hand"/>
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="Button">
-          <Grid x:Name="Root" Background="Transparent">
+          <Grid x:Name="Root" Background="Transparent" RenderTransformOrigin="0.5,0.5">
+            <Grid.RenderTransform><TranslateTransform Y="0"/></Grid.RenderTransform>
             <Border x:Name="Fallback" Visibility="Collapsed" Background="{StaticResource PanelBg}"
-                    BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="8"/>
+                    BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="10"/>
             <Image x:Name="Art" Stretch="Fill"
                    Source="{Binding (local:ArtProps.File), RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource Asset}}"/>
             <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
@@ -55,12 +71,51 @@
             <DataTrigger Binding="{Binding Source, ElementName=Art}" Value="{x:Null}">
               <Setter TargetName="Fallback" Property="Visibility" Value="Visible"/>
             </DataTrigger>
-            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Root" Property="Opacity" Value="0.85"/></Trigger>
-            <Trigger Property="IsPressed" Value="True"><Setter TargetName="Root" Property="Opacity" Value="0.65"/></Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Fallback" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+              <Setter TargetName="Root" Property="Effect" Value="{StaticResource SoftGlowEffect}"/>
+              <Setter TargetName="Root" Property="RenderTransform"><Setter.Value><TranslateTransform Y="-2"/></Setter.Value></Setter>
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True"><Setter TargetName="Root" Property="Opacity" Value="0.8"/></Trigger>
             <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Root" Property="Opacity" Value="0.4"/></Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
     </Setter>
+  </Style>
+  <!-- 右欄選單鈕：純文字（同草圖），滑過變青色並有左側亮條 -->
+  <Style x:Key="NavButton" TargetType="Button">
+    <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+    <Setter Property="FontSize" Value="17"/>
+    <Setter Property="FontWeight" Value="Bold"/>
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Grid x:Name="Root" Background="Transparent">
+            <Border x:Name="Bar" HorizontalAlignment="Left" Width="3" Margin="0,8" CornerRadius="2"
+                    Background="{StaticResource AccentBrush}" Opacity="0"/>
+            <ContentPresenter x:Name="Label" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="6,2"/>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bar" Property="Opacity" Value="1"/>
+              <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True"><Setter TargetName="Root" Property="Opacity" Value="0.7"/></Trigger>
+            <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Root" Property="Opacity" Value="0.4"/></Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- 程式繪製的向量圖標：線條顏色跟著按鈕文字色走（滑過會一起變青色），任何縮放都清楚 -->
+  <Style x:Key="NavIcon" TargetType="Path">
+    <Setter Property="Stroke" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+    <Setter Property="StrokeThickness" Value="2.2"/>
+    <Setter Property="StrokeStartLineCap" Value="Round"/>
+    <Setter Property="StrokeEndLineCap" Value="Round"/>
+    <Setter Property="StrokeLineJoin" Value="Round"/>
   </Style>
 </ResourceDictionary>
