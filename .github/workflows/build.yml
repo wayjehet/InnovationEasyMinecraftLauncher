@@ -1,42 +1,30 @@
 name: Build
 
 on:
-  workflow_dispatch:
   push:
-    tags: ['v*']
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-dotnet@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
-
-      # 有設定 Secret「CURSEFORGE_API_KEY」才內建金鑰；沒設定就照常編譯（使用者自己填金鑰）。
-      # 金鑰只在這個執行環境的原始碼副本裡被取代，不會提交回倉庫。
-      - name: Inject CurseForge key (optional)
-        shell: pwsh
-        env:
-          CF_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
-        run: |
-          if ($env:CF_KEY) {
-            $f = 'src/IEML.Core/Services/BuiltInSecrets.cs'
-            $c = Get-Content $f -Raw
-            $c = $c.Replace('CurseForgeKey = "";', 'CurseForgeKey = "' + $env:CF_KEY + '";')
-            Set-Content $f $c -NoNewline
-            Write-Host 'Built-in CurseForge key injected.'
-          } else {
-            Write-Host 'No CURSEFORGE_API_KEY secret; building without a built-in key.'
-          }
+          dotnet-version: 8.0.x
 
       - name: Publish
-        shell: pwsh
-        run: ./publish.ps1 -SelfContained
+        run: dotnet publish src/IEML.App/IEML.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o dist
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
           name: InnovationEasyMinecraftLauncher
           path: dist/

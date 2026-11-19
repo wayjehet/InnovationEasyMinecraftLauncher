@@ -1,0 +1,76 @@
+name: Import and flatten launcher ZIP
+
+on:
+  workflow_dispatch:
+    inputs:
+      zip_name:
+        description: ZIP file name
+        required: true
+        default: InnovationLauncher.zip
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract and flatten project
+        shell: bash
+        env:
+          ZIP_NAME: ${{ inputs.zip_name }}
+        run: |
+          set -euo pipefail
+
+          if [ ! -f "$ZIP_NAME" ]; then
+            echo "找不到 ZIP：$ZIP_NAME"
+            exit 1
+          fi
+
+          rm -rf /tmp/innovation-import
+          mkdir -p /tmp/innovation-import
+          unzip -q -o "$ZIP_NAME" -d /tmp/innovation-import
+
+          SOURCE="/tmp/innovation-import"
+
+          if [ -d "$SOURCE/InnovationLauncher" ]; then
+            SOURCE="$SOURCE/InnovationLauncher"
+          else
+            DIR_COUNT=$(find "$SOURCE" -mindepth 1 -maxdepth 1 -type d | wc -l)
+            FILE_COUNT=$(find "$SOURCE" -mindepth 1 -maxdepth 1 -type f | wc -l)
+
+            if [ "$DIR_COUNT" -eq 1 ] && [ "$FILE_COUNT" -eq 0 ]; then
+              SOURCE=$(find "$SOURCE" -mindepth 1 -maxdepth 1 -type d)
+            fi
+          fi
+
+          echo "專案來源：$SOURCE"
+
+          find . -mindepth 1 -maxdepth 1 \
+            ! -name .git \
+            ! -name .github \
+            ! -name "$ZIP_NAME" \
+            -exec rm -rf {} +
+
+          rm -rf "$SOURCE/.github"
+          cp -a "$SOURCE/." .
+
+          rm -rf /tmp/innovation-import
+          rm -f "$ZIP_NAME"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "沒有變更，略過 commit"
+          else
+            git diff --cached --stat
+            git commit -m "Import and flatten new launcher release"
+            git push
+          fi
