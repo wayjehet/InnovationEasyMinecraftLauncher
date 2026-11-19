@@ -56,7 +56,7 @@ public partial class MainViewModel : ObservableObject
         _ = RefreshAsync();
     }
     // ---------- 快捷啟動卡片：自由拖拉擺放 ----------
-    public const double CardWidth = 220, CardHeight = 104;
+    public const double CardWidth = 210, CardHeight = 104;
     double _cardsW, _cardsH;
 
     /// 畫布大小改變時由視窗通知；把跑出畫面的卡片拉回來（只改畫面，不改已存的位置）
@@ -116,8 +116,8 @@ public partial class MainViewModel : ObservableObject
                     LaunchCommand = new AsyncRelayCommand(() => RunLaunch(iid, aid)),
                     SettingsCommand = new AsyncRelayCommand(() => OpenSettingsFor(iid)),
                     // 還沒擺過：預設照草圖——上排兩張（右邊略低）、第三張置中在下，之後的往下排
-                    X = c.X ?? (k == 2 ? (CardWidth + 10) / 2.0 : (k % 2) * (CardWidth + 10)),
-                    Y = c.Y ?? (k / 2) * (CardHeight + 10) + (k % 2 == 1 ? 14 : 0)
+                    X = c.X ?? (k == 1 ? 268 : k == 2 ? 146 : 24),
+                    Y = c.Y ?? (k == 0 ? 30 : k == 1 ? 44 : k == 2 ? 190 : 60 + k * 14)
                 });
             }
         }

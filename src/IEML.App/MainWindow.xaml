@@ -112,7 +112,7 @@
             <ItemsControl.ItemTemplate>
               <DataTemplate>
                 <!-- 小卡片：上面是頭像＋名稱（拖這一塊可移動），下面是「啟動」「設置」兩顆按鈕 -->
-                <Border Width="220" Height="104" CornerRadius="8" Background="{StaticResource PanelBg}"
+                <Border Width="210" Height="104" CornerRadius="8" Background="{StaticResource PanelBg}"
                         BorderBrush="{StaticResource LineBrush}" BorderThickness="1">
                   <Grid Margin="10">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
