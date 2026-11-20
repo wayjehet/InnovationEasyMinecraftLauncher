@@ -38,10 +38,27 @@ jobs:
         shell: pwsh
         run: Compress-Archive -Path dist/* -DestinationPath InnovationEasyMinecraftLauncher-${{ github.ref_name }}-NET8-SelfContained.zip -CompressionLevel Optimal
 
-      - name: Create GitHub Release
+      - name: Create or update GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${{ github.ref_name }}" "InnovationEasyMinecraftLauncher-${{ github.ref_name }}-NET8-SelfContained.zip" --title "Innovation Easy Minecraft Launcher ${{ github.ref_name }}" --notes "Windows x64 自包含版本，已包含 .NET 8 Runtime。解壓縮後執行 InnovationEasyMinecraftLauncher.exe。"
+          $tag = '${{ github.ref_name }}'
+          $zip = "InnovationEasyMinecraftLauncher-$tag-NET8-SelfContained.zip"
+          $sha = "$zip.sha256"
+
+          if (Test-Path $zip) {
+            Get-FileHash -Algorithm SHA256 $zip | ForEach-Object { $_.Hash.ToLower() + "  " + $zip } | Set-Content -Encoding ascii $sha
+          }
+
+          if (gh release view $tag 2>$null) {
+            gh release upload $tag $zip --clobber
+            if (Test-Path $sha) { gh release upload $tag $sha --clobber }
+          } else {
+            if (Test-Path $sha) {
+              gh release create $tag $zip $sha --title "Innovation Easy Minecraft Launcher $tag" --notes "Windows x64 自包含版本，已包含 .NET 8 Runtime。解壓縮後執行 InnovationEasyMinecraftLauncher.exe。"
+            } else {
+              gh release create $tag $zip --title "Innovation Easy Minecraft Launcher $tag" --notes "Windows x64 自包含版本，已包含 .NET 8 Runtime。解壓縮後執行 InnovationEasyMinecraftLauncher.exe。"
+            }
+          }
