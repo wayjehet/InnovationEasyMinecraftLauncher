@@ -1,0 +1,22 @@
+<Window x:Class="IEML.App.PublicServerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="公開伺服器" Width="640" Height="560" WindowStartupLocation="CenterOwner">
+  <DockPanel Margin="16">
+    <DockPanel DockPanel.Dock="Top">
+      <Button x:Name="SearchBtn" DockPanel.Dock="Right" Content="搜尋" Click="Search_Click" Padding="18,4" Margin="8,0,0,0"/>
+      <TextBox x:Name="KeywordBox" ToolTip="關鍵字，例如 SMP、Skyblock；留空＝瀏覽清單" KeyDown="KeywordBox_KeyDown"/>
+    </DockPanel>
+    <TextBlock x:Name="StatusText" DockPanel.Dock="Top" Margin="0,8,0,0" Foreground="Gray" TextWrapping="Wrap"
+               Text="資料來自 NewMinecraftServers（站方約 30–60 秒快取）。選一筆後可按「即時查詢」確認目前狀態。"/>
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,10,0,0">
+      <Button x:Name="PrevBtn" Content="◀ 上一頁" Click="Prev_Click" Padding="10,3" Margin="0,0,6,0" IsEnabled="False"/>
+      <TextBlock x:Name="PageText" Text="第 1 頁" VerticalAlignment="Center" Margin="0,0,6,0"/>
+      <Button x:Name="NextBtn" Content="下一頁 ▶" Click="Next_Click" Padding="10,3" Margin="0,0,18,0" IsEnabled="False"/>
+      <Button Content="即時查詢" Click="Live_Click" Padding="10,3" Margin="0,0,6,0"/>
+      <Button Content="加入收藏" Click="Fav_Click" Padding="10,3" Margin="0,0,6,0"/>
+      <Button Content="複製位址" Click="Copy_Click" Padding="10,3"/>
+    </StackPanel>
+    <ListBox x:Name="List" Margin="0,10,0,0" ItemsSource="{Binding Lines}"/>
+  </DockPanel>
+</Window>

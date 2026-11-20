@@ -1,0 +1,41 @@
+# 建置輸出
+bin/
+obj/
+dist/
+publish/
+
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.userprefs
+*.DotSettings.user
+
+# 套件與測試
+packages/
+*.nupkg
+TestResults/
+
+# 記錄與暫存
+*.log
+*.tmp
+*.part
+
+# 原生 DLL（自行編譯，不放進倉庫）
+native/*.dll
+native/*.obj
+native/*.lib
+native/*.exp
+# 例外：已編好的種子地圖 DLL 要一起提交（x64）
+!native/ieml_cubiomes.dll
+
+# 本機機密與資料（以防萬一）
+curseforge.json
+accounts.json
+*.pfx
+
+# 系統檔
+Thumbs.db
+.DS_Store
