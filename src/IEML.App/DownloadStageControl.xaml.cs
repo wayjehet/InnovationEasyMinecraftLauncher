@@ -90,6 +90,17 @@ public partial class DownloadStageControl : UserControl
         finally { CreateButton.IsEnabled = true; }
     }
 
+    /// 地圖：開啟地圖視窗（匯入 zip／資料夾／網址、CurseForge 地圖、備份、刪除），放進「安裝到實例」選的實例。
+    void Maps_Click(object sender, RoutedEventArgs e)
+    {
+        if (InstanceBox.SelectedItem is not InstanceConfig inst)
+        {
+            MessageBox.Show(Window.GetWindow(this), "請先建立或選擇一個實例（地圖會放進該實例的 saves 資料夾）。", "地圖");
+            return;
+        }
+        new MapsWindow(_instances, inst) { Owner = Window.GetWindow(this) }.ShowDialog();
+    }
+
     void Tab_Click(object sender, RoutedEventArgs e)
     {
         var tag = (sender as FrameworkElement)?.Tag as string;

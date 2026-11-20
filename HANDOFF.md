@@ -300,3 +300,9 @@ Contracts.cs（只加不改既有簽章）：`ContentHit` 多了選填的 `Downl
 - `MapsWindow`（新）：分頁「我的地圖」（匯入 zip／資料夾、網址、備份、刪除、開資料夾）與「CurseForge 地圖」。入口：主畫面「下載」選單 →「地圖」。
 - Modrinth 沒有地圖分類，所以不做；Planet Minecraft 等網站沒有公開 API，只能先用瀏覽器下載再匯入。
 - 沒做：讀 level.dat 顯示真正的世界名稱／版本／縮圖；遊戲執行中偵測（備份或刪除正在使用的地圖可能失敗）。
+
+
+## Update 9 — 接上 Copilot 的主畫面
+- 倉庫改由 GitHub main 為準（Copilot 依預覽做了「階段頁」：設置／下載中心的覆蓋頁、`DownloadStageControl`、主題配色）。
+- 地圖入口：下載中心分頁列新增「地圖」，開啟 `MapsWindow`（對象是「安裝到實例」選的實例）。原本在舊「下載」選單的 `OpenMapsCommand` 項目已隨主畫面改版消失，`OpenMaps` 命令仍留在 `MainViewModel`（未使用）。
+- `.github/workflows` 同時有 `Build.yml` 與 `build.yml`（只差大小寫）：同一個 push 會跑兩次，建議刪一個；Copilot 版沒有「注入 CURSEFORGE_API_KEY」的步驟。
