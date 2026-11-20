@@ -300,3 +300,50 @@ Contracts.cs（只加不改既有簽章）：`ContentHit` 多了選填的 `Downl
 - `MapsWindow`（新）：分頁「我的地圖」（匯入 zip／資料夾、網址、備份、刪除、開資料夾）與「CurseForge 地圖」。入口：主畫面「下載」選單 →「地圖」。
 - Modrinth 沒有地圖分類，所以不做；Planet Minecraft 等網站沒有公開 API，只能先用瀏覽器下載再匯入。
 - 沒做：讀 level.dat 顯示真正的世界名稱／版本／縮圖；遊戲執行中偵測（備份或刪除正在使用的地圖可能失敗）。
+
+
+## Update 9 — 接上 Copilot 的主畫面
+- 倉庫改由 GitHub main 為準（Copilot 依預覽做了「階段頁」：設置／下載中心的覆蓋頁、`DownloadStageControl`、主題配色）。
+- 地圖入口：下載中心分頁列新增「地圖」，開啟 `MapsWindow`（對象是「安裝到實例」選的實例）。原本在舊「下載」選單的 `OpenMapsCommand` 項目已隨主畫面改版消失，`OpenMaps` 命令仍留在 `MainViewModel`（未使用）。
+- `.github/workflows` 同時有 `Build.yml` 與 `build.yml`（只差大小寫）：同一個 push 會跑兩次，建議刪一個；Copilot 版沒有「注入 CURSEFORGE_API_KEY」的步驟。
+
+
+## Update 10 — 登入快取加密（安全修正，未編譯、未實測）
+- 問題：Update 登入修正後，`Authenticate()` 讓 CmlLib 把 Microsoft/Xbox/Minecraft 權杖以**明文 JSON** 存到 `%AppData%\Roaming\InnovationEasyLauncher\ms\<id>.json`，複製走就能在別處使用。
+- 修正：`MicrosoftSessions.Open(id)` 回傳 `LoginScope`（務必 using）：把 DPAPI 加密的 `ms\<id>.dat` 解到 `%LocalAppData%\InnovationEasyLauncher\tmp\*.tmp` 給函式庫用，Dispose 時重新加密並覆寫 0 後刪除暫存檔；啟動時清掉殘留暫存檔；舊的明文 `.json` 自動遷移後刪除。`AccountService` 兩處改用 scope。
+- 限制：擋不住同一 Windows 使用者下的惡意程式；SSD 無法保證覆寫抹除。
+- 待實測：加入帳號 → `ms\` 只有 `.dat`（沒有 `.json`）；第二次啟動靜默登入；複製 `.dat` 到別台電腦應該解不開並要求重登。
+
+
+## Update 11 — 安全強化（未編譯、未實測）
+- `Secrets.cs`（新）：DPAPI 的 optionalEntropy 依用途分開（登入快取／CurseForge 金鑰／帳號 refresh token），`UnprotectWithLegacy` 可讀舊版（entropy=null）並由呼叫端重新加密；`Zero()` 抹除 byte[]。登入快取解密／加密的位元組、CF 金鑰的位元組用完即抹除。**限制**：權杖在 CmlLib 內部是 string，無法抹除；entropy 在程式裡不是祕密，只做用途隔離。舊的（entropy=null）`ms\*.dat` 解不開會被刪除並要求重登（登入快取加密尚未正式發佈，影響極小）。
+- `DownloadPolicy.cs`（新）：https 網域白名單（forgecdn.net／curseforge.com／modrinth.com／github.com／githubusercontent.com／gitlab.com，含轉址後的最終網址）；.mrpack 內的下載網域限縮到規格允許的 cdn.modrinth.com／github.com／raw.githubusercontent.com／gitlab.com；整合包 overrides 的可執行檔（.exe .bat .cmd .ps1 .vbs .vbe .wsf .msi .scr .com .lnk .hta .reg）一律略過；自帶 .jar 只在遊戲日誌警告。
+- `CurseForgeService`：新增 `HashOf`（SHA-1，沒有才 MD5）與 `DownloadVerifiedAsync`（白名單＋強制雜湊＋.part 驗證後改名）；模組、整合包本體、整合包內模組、地圖下載都改走它；舊的未驗證 `DownloadAsync` 已刪除。`MapDownload` 多了 `Hash`，`DownloadFileAsync` 多了 `hash` 參數。
+- `ModrinthService.DownloadAsync`：改為強制 SHA-1、網域白名單、.part 驗證；`.mrpack` 本體現在也驗證 SHA-1（原本傳 null）。
+- 啟動參數：`TerracottaService`、`EasyTierService` 的 CLI 呼叫改用 `ArgumentList`；以管理員身分執行的 PowerShell 指令列有路徑字元檢查（那一段維持 `UseShellExecute=true` + `runas`，ArgumentList 在該模式下的行為沒把握，未更動）。遊戲本體由 CmlLib 自己組 `ProcessStartInfo`，無法改；`ExtraJvmArgs` 是使用者自己填的設定，沒有加驗證。
+- 刻意沒做：封鎖整合包內的 .jar（會讓許多正常整合包無法安裝）。
+- 注意：缺雜湊會直接拒絕安裝，如果某些舊檔案 CurseForge 沒給雜湊，會出現「沒有官方檢查碼可驗證」的錯誤。
+
+
+## Update 12 — 自動更新（未編譯、未實測）
+- `UpdateService`（Core，新）：`CheckAsync`（GitHub `releases/latest`，只看正式版）、`DownloadAndVerifyAsync`（網域白名單、SHA-256、選用 ECDSA P-256 簽章、防 Zip Slip）、`ApplyAndRestart`（背景 PowerShell：等關閉→exe 改 .old→複製→失敗還原→重啟，全用 ArgumentList）、`CleanupOld`；`UpdateSettings`（update.json：自動檢查、上次檢查、略過版本）。
+- `MainViewModel`：`CheckUpdateCommand`、`AutoCheckUpdateAsync`（每 12 小時最多一次）；`MainWindow` 的 `Loaded` 觸發；`LauncherSettingsWindow` 多「檢查更新」按鈕與「啟動時自動檢查更新」。
+- `build.yml`：Release 多附 `.sha256`，有設定 `UPDATE_SIGNING_KEY` secret 就附 `.sig`。**`UpdateService.PublicKeyBase64` 目前是空的＝只驗 SHA-256**；啟用步驟見 `docs/UPDATE.md`。
+- 待實測：用舊版（1.1.0）檢查到新 Release → 下載 → 換檔重啟；故意改壞 zip 應被拒絕；`digest` 欄位在 API 沒有時要有 `.sha256` 檔；安裝資料夾不可寫時還原。
+- 注意：版本比較用 `System.Version`，Release tag 要像 `v1.2.0`；csproj 的 `<Version>` 要跟 tag 一致，否則會一直提示更新或永遠不提示。
+
+
+## Update 13 — 自動更新收尾＋拖放匯入（未編譯、未實測）
+- 版本號：csproj `<Version>` 1.1.0 → 1.2.1，另加 `<InformationalVersion>1.2.1EF</InformationalVersion>`；`UpdateService.TryParseVersion` 改成只取開頭的數字（v1.2.1EF → 1.2.1），字母後綴不再導致解析失敗。**字母不同、數字相同的版本不會互相提示更新。**
+- 刪除重複的 `.github/workflows/Build.yml`（保留有 Release／checksum／簽章的 `build.yml`）。GitHub 倉庫那邊也要刪掉大寫的那個。
+- `MainWindow.xaml.cs`：「關於」文字少了大括號（顯示成字面的 `AppInfo.Repo`）已修；`CleanupOld()` 改在每次啟動時呼叫（原本只有檢查更新時才清 `.old`）。
+- 拖放匯入（採納朋友的建議：資源包 zip 可以直接拉進去，第三方有時抓不到）：`ContentWindow` 整個視窗可拖放 `.zip`（資源包／光影）與 `.jar`（模組）。`InstalledContentService.Import`：檢查副檔名、是有效 zip、資源包根目錄要有 `pack.mcmeta`、光影要有 `shaders/`；不覆蓋同名檔（加 (1)）；先寫 `.part` 再改名。`.zip` 預設當資源包，目前選的是光影才當光影。匯入後自動切到「已安裝管理」。
+- 待實測：拖資源包 zip → 出現在清單並在遊戲內可選；多包一層資料夾的 zip 應被拒絕並說明；同名檔案不覆蓋；沒選實例時的提示。
+
+
+## Update 14 — 合併兩個版本（InnovationLauncher 1.2.1EF ＋ InnovationEasyMinecraftLauncher-main 1.1.0）
+- 以 InnovationLauncher（含 Update 10–13：登入快取加密、下載驗證、自動更新、拖放匯入）為基底；舊版（main）沒有任何獨有的程式碼變更。
+- 從舊版帶進來：`native/ieml_cubiomes.dll`（種子地圖用）。`.gitignore` 加 `!native/ieml_cubiomes.dll` 例外，否則提交時會被忽略。
+- 不採用：舊版大寫的 `.github/workflows/Build.yml`（和 `build.yml` 重複且功能較少）。GitHub 倉庫上如果還在，要手動刪除。
+- 未編譯、未實測：這次合併沒有 .NET 環境，只做了靜態檢查（引用的成員、命令名稱、套件參考皆存在）。請先 `dotnet build` 一次。
+

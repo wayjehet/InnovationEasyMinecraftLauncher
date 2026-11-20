@@ -2,6 +2,8 @@
 
 啟動器的「種子地圖」需要 `ieml_cubiomes.dll`（放在啟動器 exe 同一個資料夾，或放在 `native\` 讓專案建置時自動複製）。
 
+> 倉庫已附一份編好的 x64 `ieml_cubiomes.dll`（`.gitignore` 對它開了例外）。通常不用自己編；要更新或換成其他位元數時才照下面步驟重編。
+
 ## 建置（Windows，x64）
 1. `git clone https://github.com/Cubitect/cubiomes` 到 `native\cubiomes\`
 2. 在「x64 Native Tools Command Prompt for VS」執行：

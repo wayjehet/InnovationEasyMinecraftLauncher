@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
@@ -136,7 +136,7 @@ public partial class MapsWindow : Window
             var d = await _cf.GetWorldDownloadAsync(hit.ProjectId);
             var tmp = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"ieml_map_{Guid.NewGuid():N}.zip");
             p.Report(($"下載 {d.FileName}", 0));
-            await _cf.DownloadFileAsync(d.Url, tmp);
+            await _cf.DownloadFileAsync(d.Url, tmp, d.Hash);
             var name = await _maps.ImportDownloadedAsync(_inst.Id, tmp, hit.Title, p, default);
             return $"已匯入地圖：{name}";
         });

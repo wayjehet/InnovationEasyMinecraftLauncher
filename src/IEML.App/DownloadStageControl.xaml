@@ -9,6 +9,7 @@
           <Button x:Name="GameTab" Content="遊戲" Width="74" Height="32" Margin="0,0,6,6" Click="Tab_Click" Tag="game"/>
           <Button x:Name="ContentTab" Content="內容" Width="74" Height="32" Margin="0,0,6,6" Click="Tab_Click" Tag="content"/>
           <Button x:Name="InstalledTab" Content="已安裝" Width="74" Height="32" Margin="0,0,6,6" Click="Tab_Click" Tag="installed"/>
+          <Button x:Name="MapsTab" Content="地圖" Width="74" Height="32" Margin="0,0,6,6" Click="Maps_Click" ToolTip="匯入／下載地圖到上面「安裝到實例」選的實例"/>
         </WrapPanel>
       </StackPanel>
     </Border>

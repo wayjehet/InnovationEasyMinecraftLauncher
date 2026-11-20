@@ -113,6 +113,9 @@ public sealed class EasyTierService : IEasyTierService
         if (File.Exists(StopPath)) File.Delete(StopPath);
 
         Report("請在彈出的視窗按「是」，授權建立虛擬網卡…");
+        // 以管理員身分執行的指令列：要放進引號的路徑不得含引號或換行（Windows 路徑本來就不會有，這裡再擋一次）
+        foreach (var v in new[] { ScriptPath, core, ArgsPath, StopPath })
+            if (v.Contains('"') || v.Contains('\n') || v.Contains('\r')) throw new InvalidOperationException("路徑含有不安全字元，已中止。");
         var psi = new ProcessStartInfo("powershell.exe")
         {
             UseShellExecute = true,
@@ -194,7 +197,7 @@ public sealed class EasyTierService : IEasyTierService
         if (_cli is null || _rpc is null) return null;
         try
         {
-            var psi = new ProcessStartInfo(_cli, $"--rpc-portal {_rpc} node")
+            var psi = new ProcessStartInfo(_cli)
             {
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -202,6 +205,7 @@ public sealed class EasyTierService : IEasyTierService
                 CreateNoWindow = true,
                 StandardOutputEncoding = Encoding.UTF8,
             };
+            psi.ArgumentList.Add("--rpc-portal"); psi.ArgumentList.Add(_rpc); psi.ArgumentList.Add("node");
             using var p = Process.Start(psi);
             if (p is null) return null;
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);

@@ -57,12 +57,13 @@ public sealed class TerracottaService
         Directory.CreateDirectory(Dir);
         if (File.Exists(PortFile)) File.Delete(PortFile);
         Report("啟動陶瓦聯機…");
-        var psi = new ProcessStartInfo(exe, $"--hmcl \"{PortFile}\"")
+        var psi = new ProcessStartInfo(exe)
         {
             UseShellExecute = false,
             CreateNoWindow = true,
             WorkingDirectory = Path.GetDirectoryName(exe)!,
         };
+        psi.ArgumentList.Add("--hmcl"); psi.ArgumentList.Add(PortFile);   // 用 ArgumentList，不拼字串
         _proc = Process.Start(psi);
 
         // 官方文件：就緒後會把 {"port": N} 寫進指定檔案（Windows 下最久等 8 秒）

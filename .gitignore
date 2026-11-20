@@ -28,6 +28,8 @@ native/*.dll
 native/*.obj
 native/*.lib
 native/*.exp
+# 例外：已編好的種子地圖 DLL 要一起提交（x64）
+!native/ieml_cubiomes.dll
 
 # 本機機密與資料（以防萬一）
 curseforge.json

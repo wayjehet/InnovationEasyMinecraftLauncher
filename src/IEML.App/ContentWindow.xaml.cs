@@ -126,6 +126,41 @@ public partial class ContentWindow : Window
         catch (Exception ex) { StatusText.Text = "安裝失敗：" + ex.Message; }
     }
 
+    // ---------- 拖放匯入（資源包 .zip／光影 .zip／模組 .jar）----------
+    void Window_PreviewDragOver(object s, DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
+        e.Effects = DragDropEffects.Copy; e.Handled = true;
+    }
+
+    void Window_PreviewDrop(object s, DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
+        e.Handled = true;
+        if (_inst is null) { StatusText.Text = "請先在主畫面選一個實例，再把檔案拖進來"; return; }
+        var files = (string[])e.Data.GetData(DataFormats.FileDrop)!;
+        var dir = InstDir(_inst.Id);
+        int ok = 0; var errors = new List<string>(); ContentKind? last = null;
+        foreach (var f in files)
+        {
+            // .jar → 模組；.zip → 目前選的是光影就當光影，否則當資源包
+            var cur = Tabs.SelectedIndex == 1 ? InstKind : Kind;
+            var kind = System.IO.Path.GetExtension(f).Equals(".jar", StringComparison.OrdinalIgnoreCase) ? ContentKind.Mod
+                     : cur == ContentKind.Shader ? ContentKind.Shader : ContentKind.ResourcePack;
+            var r = InstalledContentService.Import(dir, kind, f);
+            if (r.Ok) { ok++; last = kind; } else errors.Add(r.Message);
+        }
+        foreach (var m in errors) GameLog.Append("匯入失敗：" + m);
+        var msg = (ok > 0 ? $"已加入 {ok} 個檔案。" : "") + (errors.Count > 0 ? string.Join("\n", errors) : "");
+        if (last is { } k)
+        {
+            foreach (ComboBoxItem it in InstKindBox.Items) if ((string)it.Tag == k.ToString()) InstKindBox.SelectedItem = it;
+            Tabs.SelectedIndex = 1;
+            ReloadInstalled();      // 會改寫狀態列，所以訊息要在這之後再設
+        }
+        StatusText.Text = msg;
+    }
+
     // ---------- 已安裝管理 ----------
     void Tabs_SelectionChanged(object s, SelectionChangedEventArgs e)
     {

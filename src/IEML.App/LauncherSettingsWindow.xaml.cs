@@ -18,6 +18,7 @@ public partial class LauncherSettingsWindow : Window
         InitializeComponent();
         DataContext = vm;
         KeyStatus.Text = CurseForgeSettings.SourceText;
+        AutoUpdateBox.IsChecked = UpdateSettings.AutoCheck;
         VersionText.Text = $"Innovation Easy Minecraft Launcher  Beta {AppInfo.Version}";
         AssetList.Text = $"資料夾：{ArtAssets.UserDir}\n\n" +
             string.Join("\n", AssetNames.Select(n => (ArtAssets.Find(n) is null ? "○ " : "● ") + n)) +
@@ -44,6 +45,8 @@ public partial class LauncherSettingsWindow : Window
         }
         catch (Exception ex) { MessageBox.Show(this, ex.Message, "無法開啟資料夾"); }
     }
+
+    void AutoUpdate_Click(object s, RoutedEventArgs e) => UpdateSettings.AutoCheck = AutoUpdateBox.IsChecked == true;
 
     void OpenRepo_Click(object s, RoutedEventArgs e)
     {

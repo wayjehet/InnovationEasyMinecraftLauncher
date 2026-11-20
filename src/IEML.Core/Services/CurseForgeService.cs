@@ -36,10 +36,20 @@ public static class CurseForgeSettings
             if (!File.Exists(FilePath)) return null;
             var s = JsonSerializer.Deserialize<Store>(File.ReadAllText(FilePath));
             if (string.IsNullOrEmpty(s?.ProtectedKey)) return null;
-            var k = Encoding.UTF8.GetString(ProtectedData.Unprotect(Convert.FromBase64String(s.ProtectedKey), null, DataProtectionScope.CurrentUser));
+            var raw = Secrets.UnprotectWithLegacy(Convert.FromBase64String(s.ProtectedKey), Secrets.ApiKey, out var legacy);
+            var k = Encoding.UTF8.GetString(raw);
+            Secrets.Zero(raw);
+            if (legacy && !string.IsNullOrWhiteSpace(k)) { try { SetKey(k); } catch { } }   // 舊格式自動升級成新的加密方式
             return string.IsNullOrWhiteSpace(k) ? null : k;
         }
         catch { return null; }
+    }
+
+    static string ProtectKey(string key)
+    {
+        var bytes = Encoding.UTF8.GetBytes(key);
+        try { return Convert.ToBase64String(Secrets.Protect(bytes, Secrets.ApiKey)); }
+        finally { Secrets.Zero(bytes); }
     }
 
     public static void SetKey(string key)
@@ -48,7 +58,7 @@ public static class CurseForgeSettings
         var s = new Store
         {
             ProtectedKey = key.Length == 0 ? null
-                : Convert.ToBase64String(ProtectedData.Protect(Encoding.UTF8.GetBytes(key), null, DataProtectionScope.CurrentUser))
+                : ProtectKey(key)
         };
         File.WriteAllText(FilePath, JsonSerializer.Serialize(s));
     }
@@ -61,7 +71,7 @@ public record MapHit(string ProjectId, string Title, string Description, string?
     public string DownloadsText => Downloads >= 1_000_000 ? $"{Downloads / 1_000_000.0:0.#}M 下載"
         : Downloads >= 1_000 ? $"{Downloads / 1_000.0:0.#}K 下載" : $"{Downloads} 下載";
 }
-public record MapDownload(string Title, string FileName, string Url);
+public record MapDownload(string Title, string FileName, string Url, (string Algo, string Value)? Hash = null);
 
 /// CurseForge：搜尋（模組／資源包／光影／整合包）、單檔安裝（含必要相依）、整合包線上安裝與本機匯入。
 /// 需要使用者自己的 API 金鑰（本機匯入 .mrpack 不需要）。未編譯、未實測；欄位名稱依 CurseForge Core API 記憶撰寫。
@@ -201,7 +211,7 @@ public class CurseForgeService
         var dest = Path.GetFullPath(Path.Combine(dir, fileName));
         if (!dest.StartsWith(dir + Path.DirectorySeparatorChar)) throw new InvalidDataException("不安全的檔名：" + fileName);
         progress?.Report(($"下載 {fileName}", 0));
-        await DownloadAsync(url, dest, Sha1Of(f), ct);
+        await DownloadVerifiedAsync(url, dest, HashOf(f), ct);
         installed.Add(fileName);
     }
 
@@ -229,6 +239,21 @@ public class CurseForgeService
         return null;
     }
 
+    /// 官方檔案雜湊：優先 SHA-1（algo 1），沒有才用 MD5（algo 2）。都沒有就回傳 null（呼叫端會拒絕安裝）。
+    static (string Algo, string Value)? HashOf(JsonElement f)
+    {
+        string? md5 = null;
+        if (f.TryGetProperty("hashes", out var hs) && hs.ValueKind == JsonValueKind.Array)
+            foreach (var h in hs.EnumerateArray())
+            {
+                var v = Str(h, "value");
+                if (string.IsNullOrEmpty(v)) continue;
+                if (Int(h, "algo") == 1) return ("sha1", v);
+                if (Int(h, "algo") == 2) md5 = v;
+            }
+        return md5 is null ? null : ("md5", md5);
+    }
+
     static string? Sha1Of(JsonElement f)
     {
         if (f.TryGetProperty("hashes", out var hs) && hs.ValueKind == JsonValueKind.Array)
@@ -242,7 +267,7 @@ public class CurseForgeService
     {
         // 1. 找整合包的最新檔案
         progress?.Report(("取得整合包資訊", 0));
-        string packName; int packFileId; string? packUrl; string packFileName;
+        string packName; int packFileId; string? packUrl; string packFileName; (string Algo, string Value)? packHash;
         using (var info = await Api(HttpMethod.Get, $"mods/{projectId}", null, ct))
             packName = Str(info.RootElement.GetProperty("data"), "name") ?? "CurseForge 整合包";
         using (var files = await Api(HttpMethod.Get, $"mods/{projectId}/files?pageSize=20", null, ct))
@@ -254,6 +279,7 @@ public class CurseForgeService
             packFileId = f.GetProperty("id").GetInt32();
             packFileName = Str(f, "fileName") ?? "pack.zip";
             packUrl = Str(f, "downloadUrl");
+            packHash = HashOf(f);
         }
         packUrl ??= await GetDownloadUrl(int.Parse(projectId), packFileId, ct)
             ?? throw new InvalidOperationException("此整合包作者不開放第三方啟動器下載，請到 CurseForge 網站手動下載後，用「匯入本機整合包」匯入。");
@@ -262,7 +288,7 @@ public class CurseForgeService
         try
         {
             progress?.Report(($"下載整合包 {packFileName}", 0));
-            await DownloadAsync(packUrl, tmp, null, ct);
+            await DownloadVerifiedAsync(packUrl, tmp, packHash, ct);
             return await InstallFromZipAsync(tmp, packName, progress, ct);
         }
         finally { try { if (File.Exists(tmp)) File.Delete(tmp); } catch { } }
@@ -322,13 +348,18 @@ public class CurseForgeService
             // overrides
             progress?.Report(("解壓縮設定檔", 0));
             var prefix = overrides.TrimEnd('/') + "/";
+            var blocked = new List<string>(); var unlistedJars = new List<string>();
             foreach (var e in zip.Entries)
                 if (e.FullName.StartsWith(prefix) && !e.FullName.EndsWith('/'))
                 {
-                    var dest = Safe(e.FullName[prefix.Length..]);
+                    var rel = e.FullName[prefix.Length..];
+                    if (DownloadPolicy.IsBlockedFile(rel)) { blocked.Add(rel); continue; }          // 可執行檔／腳本：不安裝
+                    if (rel.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)) unlistedJars.Add(rel);   // 自帶 jar：只警告
+                    var dest = Safe(rel);
                     Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
                     e.ExtractToFile(dest, true);
                 }
+            DownloadPolicy.ReportPack(name, blocked, unlistedJars);
 
             // 檔案清單 -> 下載資訊與所屬分類
             var refs = root.TryGetProperty("files", out var fl) && fl.ValueKind == JsonValueKind.Array
@@ -377,7 +408,7 @@ public class CurseForgeService
 
                         var sub = classId switch { ClassResourcePacks => "resourcepacks", ClassShaders => "shaderpacks", _ => "mods" };
                         await gate.WaitAsync(ct);
-                        try { await DownloadAsync(url, Safe(Path.Combine(sub, fileName)), Sha1Of(f), ct); Interlocked.Increment(ref installed); }
+                        try { await DownloadVerifiedAsync(url, Safe(Path.Combine(sub, fileName)), HashOf(f), ct); Interlocked.Increment(ref installed); }
                         finally { gate.Release(); }
                     }
                     catch (OperationCanceledException) { throw; }
@@ -442,10 +473,10 @@ public class CurseForgeService
         var fileName = Path.GetFileName(Str(best, "fileName") ?? $"{fileId}.zip");
         var url = Str(best, "downloadUrl") ?? await GetDownloadUrl(int.Parse(projectId), fileId, ct)
             ?? throw new InvalidOperationException($"「{title}」作者不開放第三方啟動器下載，請到 CurseForge 網站手動下載後，用「匯入 zip」匯入。{site}");
-        return new MapDownload(title, fileName, url);
+        return new MapDownload(title, fileName, url, HashOf(best));
     }
 
-    public Task DownloadFileAsync(string url, string dest, CancellationToken ct = default) => DownloadAsync(url, dest, null, ct);
+    public Task DownloadFileAsync(string url, string dest, (string Algo, string Value)? hash, CancellationToken ct = default) => DownloadVerifiedAsync(url, dest, hash, ct);
 
     static async Task<string?> GetDownloadUrl(int modId, int fileId, CancellationToken ct)
     {
@@ -481,19 +512,33 @@ public class CurseForgeService
         };
     }
 
-    static async Task DownloadAsync(string url, string dest, string? sha1, CancellationToken ct)
+    /// 強制驗證的下載：網域白名單（含轉址後）＋ 必須有官方雜湊 ＋ 雜湊不符就刪檔並失敗。
+    static async Task DownloadVerifiedAsync(string url, string dest, (string Algo, string Value)? hash, CancellationToken ct)
     {
-        if (sha1 != null && File.Exists(dest) && Sha1Of(dest) == sha1) return;
+        var name = Path.GetFileName(dest);
+        if (hash is null) throw new InvalidDataException($"{name} 沒有官方檢查碼可驗證，已拒絕安裝。");
+        var uri = new Uri(url); DownloadPolicy.Require(uri);
+        var (algo, want) = hash.Value;
+        if (File.Exists(dest) && string.Equals(HashFile(dest, algo), want, StringComparison.OrdinalIgnoreCase)) return;
         Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
         var part = dest + ".part";
-        using (var res = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct))
+        try
         {
+            using var res = await Http.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, ct);
             res.EnsureSuccessStatusCode();
-            await using var fs = File.Create(part);
-            await res.Content.CopyToAsync(fs, ct);
+            DownloadPolicy.Require(res.RequestMessage?.RequestUri ?? uri);       // 轉址後的最終網域也要在白名單
+            await using (var fs = File.Create(part)) await res.Content.CopyToAsync(fs, ct);
+            if (!string.Equals(HashFile(part, algo), want, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException($"檢查碼不符，已刪除：{name}");
+            File.Move(part, dest, true);
         }
-        if (sha1 != null && Sha1Of(part) != sha1) { File.Delete(part); throw new InvalidDataException($"檢查碼不符：{Path.GetFileName(dest)}"); }
-        File.Move(part, dest, true);
+        catch { try { if (File.Exists(part)) File.Delete(part); } catch { } throw; }
+    }
+
+    static string HashFile(string path, string algo)
+    {
+        using var fs = File.OpenRead(path);
+        return Convert.ToHexString(algo == "md5" ? MD5.HashData(fs) : SHA1.HashData(fs)).ToLowerInvariant();
     }
 
     static string Sha1Of(string path)

@@ -33,17 +33,15 @@ public class AccountService : IAccountService
     public async Task<Account> AddMicrosoftAsync()
     {
         var id = Guid.NewGuid();
-        var handler = MicrosoftSessions.CreateHandler(id);
-        // 用 Authenticate()（先靜默、失敗再跳登入視窗）：它會把結果存成這個快取檔的「預設帳號」。
-        // 之前用 AuthenticateInteractively() 會當成新帳號登入，快取檔留下 {}，所以下次啟動一定要重登。
-        var session = await handler.Authenticate();
-        var uuid = session.UUID ?? "";
-        try
+        MSession session; long cacheLen;
+        using (var scope = MicrosoftSessions.Open(id))      // Dispose 時會把登入快取用 DPAPI 加密存檔，並抹除暫存檔
         {
-            var len = File.Exists(MicrosoftSessions.CachePath(id)) ? new FileInfo(MicrosoftSessions.CachePath(id)).Length : -1;
-            GameLog.Append($"Microsoft 登入完成（{session.Username}），快取檔大小 {len} 位元組" + (len <= 2 ? "（空的：函式庫沒有存下登入狀態）" : ""));
+            // 用 Authenticate()（先靜默、失敗再跳登入視窗）：它會把結果存成這個快取檔的「預設帳號」。
+            session = await scope.Handler.Authenticate();
+            cacheLen = scope.CacheSize;
         }
-        catch { }
+        var uuid = session.UUID ?? "";
+        GameLog.Append($"Microsoft 登入完成（{session.Username}），登入快取 {(cacheLen > 2 ? "已加密保存" : "是空的：函式庫沒有存下登入狀態")}（{cacheLen} 位元組）");
 
         await _lock.WaitAsync();
         try
@@ -69,15 +67,13 @@ public class AccountService : IAccountService
     {
         var acc = await GetAsync(id) ?? throw new InvalidOperationException("帳號不存在");
         if (acc.Type == AccountType.Offline) return MSession.CreateOfflineSession(acc.Name);
-        var handler = MicrosoftSessions.CreateHandler(id);
-        try { return await handler.AuthenticateSilently(); }
+        using var scope = MicrosoftSessions.Open(id);
+        try { return await scope.Handler.AuthenticateSilently(); }
         catch (Exception ex)
         {
-            // 靜默登入失敗才會再跳登入視窗；把真正原因寫進遊戲日誌，方便查「為什麼又要重新登入」
-            var p = MicrosoftSessions.CachePath(id);
-            var len = File.Exists(p) ? new FileInfo(p).Length : -1;
-            GameLog.Append($"Microsoft 靜默登入失敗（{acc.Name}）：{ex.GetType().Name}: {ex.Message}；快取檔 {p}，大小 {len} 位元組");
-            return await handler.Authenticate();   // 重新登入，並存成預設帳號（下次就能靜默登入）
+            // 靜默登入失敗才會再跳登入視窗；把原因寫進遊戲日誌（不含任何權杖內容）
+            GameLog.Append($"Microsoft 靜默登入失敗（{acc.Name}）：{ex.GetType().Name}: {ex.Message}；快取 {(MicrosoftSessions.HasCache(id) ? "有" : "無")}，大小 {scope.CacheSize} 位元組");
+            return await scope.Handler.Authenticate();   // 重新登入，並存成預設帳號（下次就能靜默登入）
         }
     }
 
@@ -89,7 +85,7 @@ public class AccountService : IAccountService
             var list = await Load();
             var acc = list.First(a => a.Id == id);
             acc.ProtectedRefreshToken = Convert.ToBase64String(
-                ProtectedData.Protect(Encoding.UTF8.GetBytes(token), null, DataProtectionScope.CurrentUser));
+                Secrets.Protect(Encoding.UTF8.GetBytes(token), Secrets.RefreshToken));
             await JsonStore.WriteAsync(AppPaths.Accounts, list);
         }
         finally { _lock.Release(); }
@@ -99,8 +95,8 @@ public class AccountService : IAccountService
     {
         var acc = await GetAsync(id);
         if (acc?.ProtectedRefreshToken is null) return null;
-        return Encoding.UTF8.GetString(ProtectedData.Unprotect(
-            Convert.FromBase64String(acc.ProtectedRefreshToken), null, DataProtectionScope.CurrentUser));
+        var raw = Secrets.UnprotectWithLegacy(Convert.FromBase64String(acc.ProtectedRefreshToken), Secrets.RefreshToken, out _);
+        try { return Encoding.UTF8.GetString(raw); } finally { Secrets.Zero(raw); }
     }
 
     public async Task RemoveAsync(Guid id)

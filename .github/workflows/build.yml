@@ -56,9 +56,5 @@ jobs:
             gh release upload $tag $zip --clobber
             if (Test-Path $sha) { gh release upload $tag $sha --clobber }
           } else {
-            if (Test-Path $sha) {
-              gh release create $tag $zip $sha --title "Innovation Easy Minecraft Launcher $tag" --notes "Windows x64 自包含版本，已包含 .NET 8 Runtime。解壓縮後執行 InnovationEasyMinecraftLauncher.exe。"
-            } else {
-              gh release create $tag $zip --title "Innovation Easy Minecraft Launcher $tag" --notes "Windows x64 自包含版本，已包含 .NET 8 Runtime。解壓縮後執行 InnovationEasyMinecraftLauncher.exe。"
-            }
+            gh release create $tag $zip $(if (Test-Path $sha) { $sha }) --title "Innovation Easy Minecraft Launcher $tag" --notes "Windows x64 自包含版本，已包含 .NET 8 Runtime。解壓縮後執行 InnovationEasyMinecraftLauncher.exe。"
           }

@@ -164,14 +164,26 @@ public class ModrinthService : IModrinthService
         return versions[0];
     }
 
+    /// 強制驗證的下載：https 網域白名單（含轉址後）＋ 必須有 SHA-1 ＋ 不符就刪檔並失敗。先寫 .part，驗證通過才改名。
     static async Task DownloadAsync(string url, string dest, string? sha1, CancellationToken ct)
     {
-        if (File.Exists(dest) && sha1 != null && Sha1Of(dest) == sha1) return;
+        var name = Path.GetFileName(dest);
+        if (string.IsNullOrEmpty(sha1)) throw new InvalidDataException($"{name} 沒有檢查碼可驗證，已拒絕下載。");
+        var uri = new Uri(url); DownloadPolicy.Require(uri);
+        sha1 = sha1.ToLowerInvariant();
+        if (File.Exists(dest) && Sha1Of(dest) == sha1) return;
         Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
-        using var res = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
-        res.EnsureSuccessStatusCode();
-        await using (var fs = File.Create(dest)) await res.Content.CopyToAsync(fs, ct);
-        if (sha1 != null && Sha1Of(dest) != sha1) { File.Delete(dest); throw new InvalidDataException($"檢查碼不符：{Path.GetFileName(dest)}"); }
+        var part = dest + ".part";
+        try
+        {
+            using var res = await Http.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, ct);
+            res.EnsureSuccessStatusCode();
+            DownloadPolicy.Require(res.RequestMessage?.RequestUri ?? uri);
+            await using (var fs = File.Create(part)) await res.Content.CopyToAsync(fs, ct);
+            if (Sha1Of(part) != sha1) throw new InvalidDataException($"檢查碼不符，已刪除：{name}");
+            File.Move(part, dest, true);
+        }
+        catch { try { if (File.Exists(part)) File.Delete(part); } catch { } throw; }
     }
 
     static string Sha1Of(string path)
@@ -244,6 +256,7 @@ public class ModrinthService : IModrinthService
     {
         string title; string packUrl;
         using (var proj = await GetJson($"project/{projectId}", ct)) title = proj.RootElement.GetProperty("title").GetString() ?? "Modpack";
+        string? packSha1 = null;
         using (var vers = await GetJson($"project/{projectId}/version", ct))
         {
             if (vers.RootElement.GetArrayLength() == 0) throw new InvalidOperationException("此整合包沒有可下載的版本");
@@ -251,12 +264,13 @@ public class ModrinthService : IModrinthService
             var f = files.EnumerateArray().FirstOrDefault(x => x.GetProperty("primary").GetBoolean());
             if (f.ValueKind == JsonValueKind.Undefined) f = files[0];
             packUrl = f.GetProperty("url").GetString()!;
+            packSha1 = f.GetProperty("hashes").TryGetProperty("sha1", out var ph) ? ph.GetString() : null;
         }
 
         var tmp = Path.Combine(Path.GetTempPath(), $"ieml_{Guid.NewGuid():N}.mrpack");
         try
         {
-            await DownloadAsync(packUrl, tmp, null, ct);
+            await DownloadAsync(packUrl, tmp, packSha1, ct);
             return await ImportMrpackAsync(tmp, title, ct);
         }
         finally { if (File.Exists(tmp)) File.Delete(tmp); }
@@ -293,16 +307,21 @@ public class ModrinthService : IModrinthService
             }
 
             // overrides first, then downloaded files
+            var blocked = new List<string>(); var unlistedJars = new List<string>();
             foreach (var e in zip.Entries)
             {
                 foreach (var prefix in new[] { "overrides/", "client-overrides/" })
                     if (e.FullName.StartsWith(prefix) && !e.FullName.EndsWith('/'))
                     {
-                        var dest = Safe(e.FullName[prefix.Length..]);
+                        var rel = e.FullName[prefix.Length..];
+                        if (DownloadPolicy.IsBlockedFile(rel)) { blocked.Add(rel); continue; }          // 可執行檔／腳本：不安裝
+                        if (rel.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)) unlistedJars.Add(rel);   // 自帶 jar：只警告
+                        var dest = Safe(rel);
                         Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
                         e.ExtractToFile(dest, true);
                     }
             }
+            DownloadPolicy.ReportPack(packName, blocked, unlistedJars);
 
             var gate = new SemaphoreSlim(6);
             var tasks = new List<Task>();
@@ -311,6 +330,7 @@ public class ModrinthService : IModrinthService
                 if (f.TryGetProperty("env", out var env) && env.TryGetProperty("client", out var cl) && cl.GetString() == "unsupported") continue;
                 var dest = Safe(f.GetProperty("path").GetString()!);
                 var url = f.GetProperty("downloads")[0].GetString()!;
+                DownloadPolicy.RequireMrpack(new Uri(url));          // .mrpack 規格只允許 Modrinth／GitHub／GitLab
                 var sha1 = f.GetProperty("hashes").TryGetProperty("sha1", out var h) ? h.GetString() : null;
                 tasks.Add(Task.Run(async () =>
                 {

@@ -11,7 +11,9 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        DataContext = new MainViewModel();
+        var mainVm = new MainViewModel();
+        DataContext = mainVm;
+        Loaded += async (_, _) => { UpdateService.CleanupOld(); try { await mainVm.AutoCheckUpdateAsync(); } catch { } };   // 啟動時背景檢查更新
         // 標誌：有 logo.png 就顯示圖，沒有就顯示文字 IEML
         Logo.Source = ArtAssets.Load("logo.png");
         LogoText.Visibility = Logo.Source is null ? Visibility.Visible : Visibility.Collapsed;
@@ -148,7 +150,7 @@ public partial class MainWindow : Window
         resetButton.Click += (_, _) => ApplyTheme("#00FFFF", "#888888", "#333333");
         actions.Children.Add(resetButton);
         panel.Children.Add(actions);
-        panel.Children.Add(new TextBlock { Text = $"版本：{AppInfo.Version}\n專案：AppInfo.Repo", Foreground = (System.Windows.Media.Brush)FindResource("MutedBrush"), Margin = new Thickness(0,12,0,0), TextWrapping = TextWrapping.Wrap });
+        panel.Children.Add(new TextBlock { Text = $"版本：{AppInfo.Version}\n專案：{AppInfo.Repo}", Foreground = (System.Windows.Media.Brush)FindResource("MutedBrush"), Margin = new Thickness(0,12,0,0), TextWrapping = TextWrapping.Wrap });
 
         StageActions.Children.Add(panel);
         StageOverlay.Visibility = Visibility.Visible;

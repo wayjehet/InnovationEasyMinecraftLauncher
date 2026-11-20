@@ -182,6 +182,49 @@ public partial class MainViewModel : ObservableObject
         await RefreshAsync();
     }
 
+
+    // ---------- 自動更新 ----------
+    [RelayCommand] Task CheckUpdate() => RunUpdateCheckAsync(manual: true);
+
+    /// 啟動時呼叫：有開啟自動檢查、且距離上次檢查超過 12 小時才會去問 GitHub。
+    public Task AutoCheckUpdateAsync() =>
+        UpdateSettings.AutoCheck && DateTime.UtcNow - UpdateSettings.LastCheckUtc > TimeSpan.FromHours(12)
+            ? RunUpdateCheckAsync(manual: false) : Task.CompletedTask;
+
+    async Task RunUpdateCheckAsync(bool manual)
+    {
+        try
+        {
+            UpdateService.CleanupOld();
+            if (manual) Status = "檢查更新中…";
+            var up = await UpdateService.CheckAsync(AppInfo.Version);
+            UpdateSettings.MarkChecked();
+            if (up is null) { Status = manual ? "目前已是最新版本" : "待命"; return; }
+            if (!manual && UpdateSettings.SkipTag == up.Tag) return;
+
+            var notes = up.Notes.Length > 500 ? up.Notes[..500] + "…" : up.Notes;
+            var ans = MessageBox.Show(Application.Current.MainWindow,
+                $"發現新版本 {up.Tag}（目前 {AppInfo.Version}）\n\n{notes}\n\n" +
+                "是＝下載並更新　否＝稍後　取消＝略過這個版本\n" +
+                $"（會驗證檔案雜湊{(UpdateService.SignatureEnabled ? "與簽章" : "")}；更新時會關閉並重新啟動啟動器，請先關閉遊戲。）",
+                "有新版本", MessageBoxButton.YesNoCancel, MessageBoxImage.Information);
+            if (ans == MessageBoxResult.Cancel) { UpdateSettings.SkipTag = up.Tag; return; }
+            if (ans != MessageBoxResult.Yes) return;
+
+            IsBusy = true; Status = "下載更新…"; ProgressPercent = 0;
+            var dir = await UpdateService.DownloadAndVerifyAsync(up, new Progress<double>(p => ProgressPercent = p));
+            Status = "驗證完成，重新啟動中…";
+            UpdateService.ApplyAndRestart(dir);
+            Application.Current.Shutdown();
+        }
+        catch (Exception ex)
+        {
+            GameLog.Append("更新失敗：" + ex.Message);
+            if (manual) Status = "更新失敗：" + ex.Message;
+        }
+        finally { IsBusy = false; }
+    }
+
     [RelayCommand] void OpenMaps()
     {
         if (SelectedInstance is null) { Status = "請先選一個實例（地圖會放進這個實例的 saves 資料夾）"; return; }
