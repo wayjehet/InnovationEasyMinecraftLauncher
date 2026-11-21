@@ -346,4 +346,3 @@ Contracts.cs（只加不改既有簽章）：`ContentHit` 多了選填的 `Downl
 - 從舊版帶進來：`native/ieml_cubiomes.dll`（種子地圖用）。`.gitignore` 加 `!native/ieml_cubiomes.dll` 例外，否則提交時會被忽略。
 - 不採用：舊版大寫的 `.github/workflows/Build.yml`（和 `build.yml` 重複且功能較少）。GitHub 倉庫上如果還在，要手動刪除。
 - 未編譯、未實測：這次合併沒有 .NET 環境，只做了靜態檢查（引用的成員、命令名稱、套件參考皆存在）。請先 `dotnet build` 一次。
-

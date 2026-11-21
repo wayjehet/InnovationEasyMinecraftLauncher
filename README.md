@@ -1,6 +1,14 @@
 # Innovation Easy Minecraft Launcher（IEML）
 
-一個以 **.NET 8 + WPF** 撰寫的 Minecraft Java 版啟動器，以 Windows 為主要目標平台。目前版本：**1.2.1（1.2.1EF）**。
+[![版本](https://img.shields.io/github/v/release/wayjehet/InnovationEasyMinecraftLauncher?label=%E7%89%88%E6%9C%AC&color=00FFFF)](https://github.com/wayjehet/InnovationEasyMinecraftLauncher/releases)
+[![建置](https://img.shields.io/github/actions/workflow/status/wayjehet/InnovationEasyMinecraftLauncher/build.yml?label=%E5%BB%BA%E7%BD%AE)](https://github.com/wayjehet/InnovationEasyMinecraftLauncher/actions/workflows/build.yml)
+[![授權](https://img.shields.io/badge/%E6%8E%88%E6%AC%8A-MIT-blue)](LICENSE)
+![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
+![平台](https://img.shields.io/badge/%E5%B9%B3%E5%8F%B0-Windows-0078D6)
+![狀態](https://img.shields.io/badge/%E7%8B%80%E6%85%8B-Beta-orange)
+![AI 協同製作](https://img.shields.io/badge/AI-%E5%8D%94%E5%90%8C%E8%A3%BD%E4%BD%9C-8A2BE2)
+
+一個以 **.NET 8 + WPF** 撰寫的 Minecraft Java 版啟動器，以 Windows 為主要目標平台。
 
 > ⚠️ **可能不穩定**
 > 許多功能是在沒有編譯環境下撰寫、尚未完整實測，可能不穩定或有錯誤。歡迎回報問題。
