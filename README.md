@@ -5,7 +5,6 @@
 [![授權](https://img.shields.io/badge/%E6%8E%88%E6%AC%8A-MIT-blue)](LICENSE)
 ![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
 ![平台](https://img.shields.io/badge/%E5%B9%B3%E5%8F%B0-Windows-0078D6)
-![狀態](https://img.shields.io/badge/%E7%8B%80%E6%85%8B-Beta-orange)
 ![AI 協同製作](https://img.shields.io/badge/AI-%E5%8D%94%E5%90%8C%E8%A3%BD%E4%BD%9C-8A2BE2)
 
 一個以 **.NET 8 + WPF** 撰寫的 Minecraft Java 版啟動器，以 Windows 為主要目標平台。
