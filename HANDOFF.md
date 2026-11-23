@@ -555,3 +555,9 @@ Update 16 規劃的第 1～3 階段一次做完（第 4 階段「伺服器」分
 - **程式**：`IEML.App.csproj` 新增 `<Content Include="..\..\third_party\terracotta\*" …>`，建置與發佈（含 `publish.ps1`、GitHub Actions 的 `dist/*` 壓縮）都會輸出到 `third_party\terracotta\`。`TerracottaService`：`FindExe() ?? InstallBundled() ?? DownloadAsync()`；`InstallBundled()` 只在 x64 使用，把內附檔案複製到 `tools\terracotta\`（不直接在程式資料夾執行，避免自動更新換檔時被鎖住），失敗或 ARM 就退回下載。
 - 待實測：1) 發佈輸出真的有 `third_party\terracotta\*` 2) 第一次開 P2P → 陶瓦不下載就能啟動 3) 刪掉 `tools\terracotta` 再開，會重新複製 4) 刪掉內附資料夾後會退回下載 5) 發行包大小增加約 9.5 MB。
 
+
+## Update 33 — 第一次 CI 編譯的錯誤修正（未再編譯）
+- **GitHub Actions 第一次編譯**（Update 17 之後累積的所有改動第一次實際編譯）回報：7 個頁面的 `.xaml.cs`（`LauncherSettingsPage`、`LogPage`、`MapsPage`、`PublicServerPage`、`SeedMapPage`、`ServerPage`、`TerracottaPage`）用了 `UserControl` 卻沒有 `using System.Windows.Controls;`（CS0246）→ 已補上。另外掃過所有 `.cs` 檔的 WPF 與常用命名空間（Controls、Media、Input、Threading、Imaging、Animation、Data 等），沒有發現其他缺漏。
+- 三個 CS8826 警告：`MainViewModel` 的 `OnMusicVolumeChanged`、`OnSelectedInstanceChanged`、`OnSelectedAccountChanged` 參數名稱是 `v`，MVVM Toolkit 產生的宣告是 `value` → 已改成 `value`（本體一併改名）。
+- 注意：CS0246 這類「找不到型別」的錯誤會讓編譯器停在早期階段，修掉之後**可能還會冒出新的語意錯誤**（API 名稱不對、型別不符等）；請再跑一次編譯，把新的錯誤清單貼回來。
+- 手機流程：倉庫的 `build.yml`／`unzip.yml` 已改成可手動執行並可帶版本標籤發佈；編譯失敗時錯誤清單會整理在該次執行的摘要頁。

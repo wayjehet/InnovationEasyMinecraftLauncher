@@ -93,7 +93,7 @@ public partial class MainViewModel : ObservableObject
         await RefreshAsync();
     }
 
-    partial void OnMusicVolumeChanged(double v) => _music.Volume = (float)v;
+    partial void OnMusicVolumeChanged(double value) => _music.Volume = (float)value;
 
     async Task RefreshAsync()
     {
@@ -128,23 +128,23 @@ public partial class MainViewModel : ObservableObject
     // 使用者「目前選的帳號」：換實例時以它為準（不被新實例舊的綁定蓋掉），重新整理清單時也靠它還原
     Guid? _currentAccountId;
 
-    partial void OnSelectedInstanceChanged(InstanceConfig? v)
+    partial void OnSelectedInstanceChanged(InstanceConfig? value)
     {
-        if (v is null) { SelectedAccount = null; return; }
+        if (value is null) { SelectedAccount = null; return; }
         var wanted = _currentAccountId is { } cur ? Accounts.FirstOrDefault(a => a.Id == cur) : null;
         // 還沒選過帳號（剛開啟）才退回該實例原本綁的帳號，再不行用第一個
-        wanted ??= Accounts.FirstOrDefault(a => a.Id == v.AccountId) ?? Accounts.FirstOrDefault();
+        wanted ??= Accounts.FirstOrDefault(a => a.Id == value.AccountId) ?? Accounts.FirstOrDefault();
         SelectedAccount = wanted; // 變更時 OnSelectedAccountChanged 會把它綁到新實例
     }
 
-    partial void OnSelectedAccountChanged(Account? v)
+    partial void OnSelectedAccountChanged(Account? value)
     {
-        if (v is not null) _currentAccountId = v.Id; // 清單重新整理造成的 null 不算使用者的選擇
+        if (value is not null) _currentAccountId = value.Id; // 清單重新整理造成的 null 不算使用者的選擇
         // 正版帳號用皮膚頭像（第三方服務 mc-heads.net）；離線帳號沒有，介面會顯示預設圖
-        AvatarUrl = v is { Type: AccountType.Microsoft, Uuid.Length: > 0 } ? $"https://mc-heads.net/avatar/{v.Uuid}/128" : null;
-        if (v is null || SelectedInstance is null || SelectedInstance.AccountId == v.Id) return;
-        _ = _instances.BindAccountAsync(SelectedInstance.Id, v.Id);
-        SelectedInstance.AccountId = v.Id;
+        AvatarUrl = value is { Type: AccountType.Microsoft, Uuid.Length: > 0 } ? $"https://mc-heads.net/avatar/{value.Uuid}/128" : null;
+        if (value is null || SelectedInstance is null || SelectedInstance.AccountId == value.Id) return;
+        _ = _instances.BindAccountAsync(SelectedInstance.Id, value.Id);
+        SelectedInstance.AccountId = value.Id;
     }
 
     [RelayCommand] async Task AddInstance()
