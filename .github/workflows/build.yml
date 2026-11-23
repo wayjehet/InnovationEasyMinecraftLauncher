@@ -7,6 +7,11 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: '要發佈的版本標籤（例如 v1.3.1）。填了就會建立 Release；留空只編譯、不發佈'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -14,6 +19,9 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      # 推送 v* 標籤時用標籤名；手動執行時用上面填的 release_tag（空字串＝不發佈）
+      TAG: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || inputs.release_tag }}
 
     steps:
       - name: Checkout
@@ -25,7 +33,20 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Publish self-contained package
-        run: dotnet publish src/IEML.App/IEML.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o dist
+        shell: pwsh
+        run: |
+          dotnet publish src/IEML.App/IEML.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o dist 2>&1 | Tee-Object -FilePath build.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Summarize build errors
+        if: failure()
+        shell: pwsh
+        run: |
+          if (Test-Path build.log) {
+            $errs = @(Select-String -Path build.log -Pattern ': error ' | ForEach-Object { $_.Line.Trim() } | Sort-Object -Unique)
+            $lines = @("### 編譯錯誤（共 $($errs.Count) 條，已去除重複，最多列 200 條）", '', '```') + ($errs | Select-Object -First 200) + @('```')
+            $lines | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -34,17 +55,17 @@ jobs:
           path: dist/
 
       - name: Create ZIP package
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.TAG != ''
         shell: pwsh
-        run: Compress-Archive -Path dist/* -DestinationPath InnovationEasyMinecraftLauncher-${{ github.ref_name }}-NET8-SelfContained.zip -CompressionLevel Optimal
+        run: Compress-Archive -Path dist/* -DestinationPath "InnovationEasyMinecraftLauncher-$env:TAG-NET8-SelfContained.zip" -CompressionLevel Optimal
 
       - name: Checksum and signature (for auto-update)
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.TAG != ''
         shell: pwsh
         env:
           UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
         run: |
-          $zip = "InnovationEasyMinecraftLauncher-${{ github.ref_name }}-NET8-SelfContained.zip"
+          $zip = "InnovationEasyMinecraftLauncher-$env:TAG-NET8-SelfContained.zip"
           $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
           "$hash  $zip" | Out-File -Encoding ascii "$zip.sha256"
           if ($env:UPDATE_SIGNING_KEY) {
@@ -56,12 +77,13 @@ jobs:
           } else { Write-Host "UPDATE_SIGNING_KEY not set; skipping signature." }
 
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.TAG != ''
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $zip = "InnovationEasyMinecraftLauncher-${{ github.ref_name }}-NET8-SelfContained.zip"
+          $zip = "InnovationEasyMinecraftLauncher-$env:TAG-NET8-SelfContained.zip"
           $files = @($zip, "$zip.sha256")
           if (Test-Path "$zip.sig") { $files += "$zip.sig" }
-          gh release create "${{ github.ref_name }}" @files --title "Innovation Easy Minecraft Launcher ${{ github.ref_name }}" --notes "Windows x64 自包含版本，已包含 .NET 8 Runtime。解壓縮後執行 InnovationEasyMinecraftLauncher.exe。"
+          # 標籤不存在時（手動執行）由 gh 在這個 commit 上建立；標籤已存在（推送 v* 標籤）時 --target 不起作用
+          gh release create "$env:TAG" @files --target "$env:GITHUB_SHA" --title "Innovation Easy Minecraft Launcher $env:TAG" --notes "Windows x64 自包含版本，已包含 .NET 8 Runtime。解壓縮後執行 InnovationEasyMinecraftLauncher.exe。"

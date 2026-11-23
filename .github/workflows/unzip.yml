@@ -7,9 +7,14 @@ on:
         description: ZIP file name
         required: true
         default: InnovationLauncher.zip
+      release_tag:
+        description: '匯入後要發佈的版本標籤（例如 v1.3.1）。留空就只匯入並編譯、不發佈'
+        required: false
+        default: ''
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   import:
@@ -73,4 +78,18 @@ jobs:
             git diff --cached --stat
             git commit -m "Import and flatten new launcher release"
             git push
+          fi
+
+      # 用 GITHUB_TOKEN 推送的 commit 不會自動觸發別的 workflow（GitHub 的防迴圈規則），
+      # 但「手動觸發 workflow_dispatch」是例外，所以在這裡接著啟動 Build and Release。
+      - name: Start Build and Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          if [ -n "$RELEASE_TAG" ]; then
+            gh workflow run build.yml --ref "${{ github.ref_name }}" -f release_tag="$RELEASE_TAG"
+          else
+            gh workflow run build.yml --ref "${{ github.ref_name }}"
           fi
