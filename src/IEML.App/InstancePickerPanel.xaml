@@ -1,0 +1,29 @@
+<UserControl x:Class="IEML.App.InstancePickerPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Foreground="{StaticResource TextBrush}">
+  <UserControl.Resources>
+    <ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="PageStyles.xaml"/></ResourceDictionary.MergedDictionaries></ResourceDictionary>
+  </UserControl.Resources>
+  <DockPanel Height="340">
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+      <Button Content="新增實例" Click="Add_Click" Padding="10,5" Margin="0,0,6,0"/>
+      <Button Content="刪除實例" Command="{Binding DeleteInstanceCommand}" Padding="10,5" Margin="0,0,6,0"/>
+      <Button Content="選擇" Click="Ok_Click" Width="80" Padding="0,5"/>
+    </StackPanel>
+    <ListBox ItemsSource="{Binding Instances}" SelectedItem="{Binding SelectedInstance}" MouseDoubleClick="List_DoubleClick">
+      <ListBox.ItemTemplate>
+        <DataTemplate>
+          <StackPanel Margin="2,4">
+            <TextBlock Text="{Binding Name}" FontWeight="Bold"/>
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="{Binding McVersion}" Foreground="{StaticResource MutedBrush}"/>
+              <TextBlock Text="  ·  " Foreground="{StaticResource MutedBrush}"/>
+              <TextBlock Text="{Binding Loader}" Foreground="{StaticResource MutedBrush}"/>
+            </StackPanel>
+          </StackPanel>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+  </DockPanel>
+</UserControl>

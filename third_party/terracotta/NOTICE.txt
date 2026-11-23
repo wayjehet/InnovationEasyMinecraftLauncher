@@ -1,0 +1,29 @@
+Terracotta | 陶瓦联机  v0.4.2  (Windows x86_64)
+Copyright (c) burningtnt and contributors
+https://github.com/burningtnt/Terracotta
+
+本資料夾內的檔案是上游官方發行包「未經修改」的原樣內容 / The files here are the UNMODIFIED official release package:
+  terracotta-0.4.2-windows-x86_64-pkg.tar.gz
+  SHA-256 (tar.gz) 07ebe139e3ca5f74576e58b1a96efe59abdfbe148d3f1a49bfdca8b6f70745f0
+  terracotta-0.4.2-windows-x86_64.exe   SHA-256 74c10568a7fea9c1d38cf8d2d4ca90baf1517f8e5a26c63d3349db70bc449796
+  VCRUNTIME140.DLL                      SHA-256 475ab98b7722e965bd38c8fa6ed23502309582ccf294ff1061cb290c7988f0d1
+  (VCRUNTIME140.DLL 是 Microsoft Visual C++ 運行庫，隨上游發行包一起提供 / the Microsoft VC++ runtime shipped in the upstream package)
+
+授權 / License
+  GNU Affero General Public License v3.0 or later，並附上游的例外條款 / with the upstream exception.
+  完整授權文字 / Full text: https://github.com/burningtnt/Terracotta/blob/master/LICENSE
+  本資料夾內的 LICENSE 是上游 LICENSE 的原樣複本 / The LICENSE file in this folder is a verbatim copy of the upstream LICENSE.
+
+原始碼 / Corresponding source (this exact version)
+  https://github.com/burningtnt/Terracotta/tree/v0.4.2
+  https://github.com/burningtnt/Terracotta/releases/tag/v0.4.2
+
+上游的 AGPL 例外 / Upstream AGPL exception (摘自上游 README / quoted from upstream README):
+  作為特例，如果您的程序通過以下方式利用本作品，則相應的行為不會導致您的作品被 AGPL 協議涵蓋。
+  1. 您的程序通過打包的方式包含本作品未經修改的二進制形式，而沒有靜態或動態地鏈接到本作品；或
+  2. 您的程序通過本作品提供的進程間通信接口（如 HTTP API）與未經修改的本作品應用程序進行交互，
+     且在您的程序用戶界面明顯處標識了本作品的版權信息。
+
+Innovation Easy Minecraft Launcher 以「打包未修改二進位檔」並「以獨立行程透過 HTTP API 互動」的方式使用它，
+不鏈接、不修改，並在介面標示版權。/ IEML ships it unmodified, runs it as a separate process over its HTTP API,
+never links or modifies it, and shows its copyright notice in the UI.

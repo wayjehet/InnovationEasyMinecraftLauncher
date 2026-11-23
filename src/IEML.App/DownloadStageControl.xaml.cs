@@ -25,6 +25,7 @@ public partial class DownloadStageControl : UserControl
         Loaded += async (_, _) => { await LoadVersionsAsync(); await LoadInstancesAsync(); };
         LoaderBox.SelectionChanged += (_, _) => { UpdateSummary(); UpdateLoaderVersionHint(); };
         VersionBox.SelectionChanged += (_, _) => { UpdateSummary(); UpdateLoaderVersionHint(); };
+        InitDetail();
     }
 
     async Task LoadVersionsAsync()
@@ -45,6 +46,8 @@ public partial class DownloadStageControl : UserControl
         var instances = await _instances.ListAsync();
         InstanceBox.ItemsSource = instances;
         InstanceBox.SelectedIndex = 0;
+        TargetBox.ItemsSource = instances;
+        TargetBox.SelectedItem = InstanceBox.SelectedItem;
         UpdateSummary();
     }
 
@@ -95,22 +98,20 @@ public partial class DownloadStageControl : UserControl
     {
         if (InstanceBox.SelectedItem is not InstanceConfig inst)
         {
-            MessageBox.Show(Window.GetWindow(this), "請先建立或選擇一個實例（地圖會放進該實例的 saves 資料夾）。", "地圖");
+            _ = Dialogs.InfoAsync("地圖", "請先建立或選擇一個實例（地圖會放進該實例的 saves 資料夾）。");
             return;
         }
-        new MapsWindow(_instances, inst) { Owner = Window.GetWindow(this) }.ShowDialog();
+        (Window.GetWindow(this) as MainWindow)?.ShowPage("地圖管理", "匯入、備份與瀏覽地圖", new MapsPage(_instances, inst));
     }
 
     void Tab_Click(object sender, RoutedEventArgs e)
     {
         var tag = (sender as FrameworkElement)?.Tag as string;
-        var tab = tag == "installed" ? "installed" : tag;
+        var tab = tag;
         GamePanel.Visibility = tab == "game" ? Visibility.Visible : Visibility.Collapsed;
         ContentPanel.Visibility = tab == "content" ? Visibility.Visible : Visibility.Collapsed;
-        InstalledPanel.Visibility = tab == "installed" ? Visibility.Visible : Visibility.Collapsed;
         GameTab.Opacity = tab == "game" ? 1 : .55;
         ContentTab.Opacity = tab == "content" ? 1 : .55;
-        if (InstalledTab != null) InstalledTab.Opacity = tab == "installed" ? 1 : .55;
     }
 
     async void Search_Click(object sender, RoutedEventArgs e)
@@ -138,7 +139,7 @@ public partial class DownloadStageControl : UserControl
 
             var result = await _modrinth.SearchAsync(new ModrinthQuery(QueryBox.Text.Trim(), kind, mc, loader, category, env, sort, 0, 20));
             foreach (var hit in result.Hits) _results.Add(hit);
-            ContentStatus.Text = $"共 {result.Total} 個結果，已顯示 {_results.Count} 個";
+            ContentStatus.Text = $"共 {result.Total} 個結果，已顯示 {_results.Count} 個（點一個項目看所有版本）";
         }
         catch (Exception ex) { ContentStatus.Text = "搜尋失敗：" + ex.Message; }
     }
@@ -232,25 +233,6 @@ public partial class DownloadStageControl : UserControl
         _ => ContentKind.Mod
     };
 
-    async void RefreshInstalled_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var inst = InstanceBox.SelectedItem as InstanceConfig;
-            if (inst is null) { InstalledStatus.Text = "請先選擇實例"; return; }
-            var kind = ((InstalledKindBox.SelectedItem as ComboBoxItem)?.Tag as string) switch
-            {
-                "Shader" => ContentKind.Shader,
-                "ResourcePack" => ContentKind.ResourcePack,
-                _ => ContentKind.Mod
-            };
-            var dir = System.IO.Path.Combine(_instances.GetInstanceDir(inst.Id), InstalledContentService.FolderFor(kind));
-            var items = InstalledContentService.List(dir, kind);
-            InstalledStatus.Text = $"共 {items.Count} 個已安裝項目（取消勾選＝停用，不會刪除）";
-        }
-        catch (Exception ex) { InstalledStatus.Text = "讀取失敗：" + ex.Message; }
-    }
-
     async void ImportLocal_Click(object sender, RoutedEventArgs e)
     {
         var dlg = new Microsoft.Win32.OpenFileDialog
@@ -259,7 +241,6 @@ public partial class DownloadStageControl : UserControl
             Filter = "整合包 (*.zip;*.mrpack)|*.zip;*.mrpack|所有檔案 (*.*)|*.*"
         };
         if (dlg.ShowDialog() != true) return;
-        InstalledStatus.Text = "匯入中…";
         try
         {
             var cf = new CurseForgeService(_instances);
@@ -272,9 +253,9 @@ public partial class DownloadStageControl : UserControl
             {
                 await cf.ImportLocalAsync(dlg.FileName);
             }
-            InstalledStatus.Text = "本機整合包匯入完成";
+            _ = Dialogs.InfoAsync("匯入整合包", "本機整合包匯入完成，已加入實例清單。");
             await LoadInstancesAsync();
         }
-        catch (Exception ex) { InstalledStatus.Text = "匯入失敗：" + ex.Message; }
+        catch (Exception ex) { _ = Dialogs.InfoAsync("匯入整合包", "匯入失敗：" + ex.Message); }
     }
 }

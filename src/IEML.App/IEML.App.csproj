@@ -7,8 +7,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>IEML.App</RootNamespace>
     <AssemblyName>InnovationEasyMinecraftLauncher</AssemblyName>
-    <Version>1.2.3</Version>
-    <InformationalVersion>1.2.3</InformationalVersion>
+    <Version>1.2.1</Version>
+    <InformationalVersion>1.2.1EF</InformationalVersion>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\IEML.Core\IEML.Core.csproj" />
@@ -17,6 +17,8 @@
   <ItemGroup>
     <!-- 電繪素材：Assets 資料夾內的檔案會複製到輸出資料夾（使用者也可放進 %AppData%\InnovationEasyLauncher\Assets 覆蓋） -->
     <Content Include="Assets\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <!-- 隨附的官方陶瓦聯機（未修改的二進位檔，見 third_party\terracotta\NOTICE.txt）；建置與發佈時複製到輸出資料夾的 third_party\terracotta\ -->
+    <Content Include="..\..\third_party\terracotta\*" Link="third_party\terracotta\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <!-- 種子地圖用的 Cubiomes 原生 DLL（native\README.md 說明如何編譯）；有的話建置時複製到輸出資料夾 -->

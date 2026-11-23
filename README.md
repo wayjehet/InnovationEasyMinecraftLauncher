@@ -1,10 +1,13 @@
 # Innovation Easy Minecraft Launcher（IEML）
 
+**繁體中文** | [English](README.en.md)
+
 [![版本](https://img.shields.io/github/v/release/wayjehet/InnovationEasyMinecraftLauncher?label=%E7%89%88%E6%9C%AC&color=00FFFF)](https://github.com/wayjehet/InnovationEasyMinecraftLauncher/releases)
 [![建置](https://img.shields.io/github/actions/workflow/status/wayjehet/InnovationEasyMinecraftLauncher/build.yml?label=%E5%BB%BA%E7%BD%AE)](https://github.com/wayjehet/InnovationEasyMinecraftLauncher/actions/workflows/build.yml)
 [![授權](https://img.shields.io/badge/%E6%8E%88%E6%AC%8A-MIT-blue)](LICENSE)
 ![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
 ![平台](https://img.shields.io/badge/%E5%B9%B3%E5%8F%B0-Windows-0078D6)
+![狀態](https://img.shields.io/badge/%E7%8B%80%E6%85%8B-Beta-orange)
 ![AI 協同製作](https://img.shields.io/badge/AI-%E5%8D%94%E5%90%8C%E8%A3%BD%E4%BD%9C-8A2BE2)
 
 一個以 **.NET 8 + WPF** 撰寫的 Minecraft Java 版啟動器，以 Windows 為主要目標平台。
@@ -52,6 +55,7 @@
 - **Modrinth**：模組、光影、資源包、整合包（`.mrpack`）。
   - 篩選：分類、載入器（光影為 Iris / OptiFine / Canvas）、執行端（客戶端／伺服器）、Minecraft 版本。
   - 排序：相關度、下載數、追蹤數、最新發布、最近更新；可分頁載入更多。
+- **選擇指定版本**：點搜尋結果進入項目詳情頁，列出所有版本（版本號、發布類型、支援的 Minecraft 版本與載入器、日期、下載數）與更新內容；可只顯示符合目前實例的版本，自動安裝必要前置、勾選安裝可選前置。Modrinth 與 CurseForge 皆支援（整合包可選特定版本建立實例）。
 - **CurseForge**：模組、光影、資源包、整合包（需自備 API 金鑰）。
 - **本機匯入整合包**：CurseForge `.zip`、Modrinth `.mrpack`。
 - **相依處理**：模組會自動安裝必要的相依；優先安裝正式版。
@@ -85,8 +89,8 @@
 
 ### 外觀與個人化
 - 深色主題（`#0F0F0F` 底、`#1C1C1C` 面板、青色 `#00FFFF` 強調色）。
-- **主題配色**：在設置頁調整強調色、圖示線條色、外框與分隔線色，可「恢復預設」，下次開啟仍保留（存在 `theme.json`）。
-- **素材換皮**：把自己畫的 PNG 放進素材資料夾即可替換背景、標誌、頭像框、各種按鈕與卡片；沒放的圖使用預設樣式，換圖後重開啟動器生效（檔名與建議尺寸見 `src/IEML.App/Assets/README.txt`）。
+- **主題配色**：在設置頁用 R／G／B 拉條調整七個部分（強調色、視窗背景、面板／卡片底色、外框與分隔線、主要文字、圖標／次要文字、強調色上的文字），拖動時即時套用；可「恢復預設」，下次開啟仍保留（存在 `theme.json`）。
+- **素材換皮（自訂圖片）**：視窗背景、標誌、頭像外框、面板、快捷卡片、對話框、選單、各種按鈕（含滑過／按下／停用狀態圖）、輸入框、下拉選單、分頁、進度條都能換成自己的圖。設置頁可直接「選圖」，也可把 PNG 以部位名放進素材資料夾，**變更立刻套用、不用重開**；支援九宮格拉伸與像素風，並可匯出／匯入素材包（zip）分享。沒放的圖使用預設樣式（部位清單與建議尺寸見 `src/IEML.App/Assets/README.txt`）。
 - **快捷啟動卡片**：中欄的卡片可自由拖拉到畫布任何位置，位置會存檔；按下的卡片會拉到最上層；每張卡片有「啟動」「設置」按鈕；視窗縮小時跑出畫面的卡片會自動拉回；設置頁可「重設快捷卡片位置」。
 
 ### 更新與打包
@@ -109,7 +113,7 @@
 各頁面內容：
 
 - **設置**：帳號管理、CurseForge API 金鑰、主題配色、素材資料夾與素材清單、重設卡片位置、版本資訊與 Beta 提示、檢查更新／自動更新開關、GitHub 專案頁。
-- **下載**：分頁「遊戲」（版本清單＋建立實例）、「內容」（Modrinth／CurseForge 搜尋與安裝）、「已安裝」（管理模組／光影／資源包、匯入本機整合包）、「地圖」。
+- **下載**：分頁「遊戲」（版本清單＋建立實例）、「內容」（Modrinth／CurseForge 搜尋、選版本與安裝）、「地圖」；頁首有「匯入整合包」按鈕。已安裝的模組／光影／資源包到「實例設置」管理。
 - **P2P**：陶瓦聯機、EasyTier 房間。
 - **更多**：伺服器查找、遊戲日誌、種子地圖、地圖管理、帳號管理。
 - **音樂**：播放控制、音量、音樂資料夾。
@@ -223,6 +227,7 @@ src/
   IEML.Core/   不含 UI：資料模型、Contracts（服務介面）、Services（實作）
   IEML.App/    WPF 介面（視窗、主題 Theme.xaml、Assets 素材）
 native/        Cubiomes 的 C 包裝、編好的 DLL 與編譯說明
+third_party/   隨附的第三方二進位檔（官方陶瓦聯機，未修改）與其授權說明
 docs/          介面預覽（ui-preview，用瀏覽器開）、下載管理器整合說明、自動更新說明
 .github/       GitHub Actions（建置與發佈）
 HANDOFF.md     開發進度與待實測清單
@@ -236,9 +241,10 @@ HANDOFF.md     開發進度與待實測清單
 - 部分程式碼由 AI 在沒有編譯環境的情況下撰寫，第一次建置可能需要修正編譯錯誤（CmlLib 的 API 名稱最可能出問題）。
 - 下載管理器尚未接到所有下載呼叫端；CmlLib 下載的原版檔案與 Forge / NeoForge 安裝程式的函式庫不經過它。
 - 缺少官方雜湊的舊檔案會被拒絕安裝（顯示「沒有官方檢查碼可驗證」）。
-- 陶瓦聯機的 Release 附件檔名是推測的；找不到時請手動把 `terracotta*.exe` 放進 `tools\terracotta\`。
+- 發行包已內附官方陶瓦聯機 v0.4.2（x64，未修改，放在 `third_party\terracotta\`），第一次使用時複製到 `tools\terracotta\`。ARM 電腦或內附檔案被刪掉時，會改從官方 Release 下載（`terracotta-<版本>-windows-<架構>-pkg.tar.gz`）；若官方日後改了附件檔名而找不到，請手動把 `terracotta*.exe`（連同同資料夾的 DLL）放進該資料夾。
 - 更新簽章尚未啟用時，只驗證 SHA-256。
-- 部分子視窗仍使用 WPF 預設淺色控制項，尚未統一主題。
+- 勾選框、捲軸、滑桿、清單項目、提示條等少數部件還不能換圖。
+- 程式碼中少數寫死的顏色（部分輸入框底色、灰字）不會跟著主題配色變；拉條本身仍是 WPF 預設樣式。
 - Modrinth 沒有地圖分類，Planet Minecraft 等網站沒有公開 API，地圖只能先用瀏覽器下載再匯入。
 - 目前僅支援 Windows。
 
@@ -265,7 +271,7 @@ HANDOFF.md     開發進度與待實測清單
 
 本專案以 [MIT 授權](LICENSE) 釋出。
 
-**陶瓦聯機 Terracotta © burningtnt（AGPL-3.0-or-later，附例外條款）**：啟動器只下載未修改的官方執行檔，作為獨立行程並透過 HTTP API 互動，不連結、不修改；依授權要求在介面明顯處標示其版權資訊。
+**陶瓦聯機 Terracotta © burningtnt（AGPL-3.0-or-later，附例外條款）**：發行包以「打包未修改二進位檔」的方式內附官方執行檔（`third_party\terracotta\`，含來源、SHA-256 與授權說明的 `NOTICE.txt`），必要時才從官方 Release 下載；啟動器以獨立行程透過 HTTP API 與它互動，不連結、不修改，並依授權要求在介面明顯處標示其版權資訊。這兩種用法都落在上游 AGPL 例外條款內；上游的 `LICENSE` 全文也一併附在該資料夾。
 
 感謝 CmlLib.Core、Fabric、Quilt、Forge、NeoForge、Modrinth、CurseForge、EasyTier、Terracotta、Cubiomes、Adoptium、NAudio、mc-heads.net 等專案與服務，以及協助開發的 AI 工具。
 

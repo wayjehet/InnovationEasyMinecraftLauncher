@@ -76,7 +76,7 @@ public record MapDownload(string Title, string FileName, string Url, (string Alg
 /// CurseForge：搜尋（模組／資源包／光影／整合包）、單檔安裝（含必要相依）、整合包線上安裝與本機匯入。
 /// 需要使用者自己的 API 金鑰（本機匯入 .mrpack 不需要）。未編譯、未實測；欄位名稱依 CurseForge Core API 記憶撰寫。
 /// 作者不開放第三方下載的檔案（API 不給 downloadUrl）不會繞過：整合包列在「需手動下載」清單並寫入 manual-downloads.txt，單檔則直接提示。
-public class CurseForgeService
+public partial class CurseForgeService
 {
     const int GameMinecraft = 432, ClassModpacks = 4471, ClassMods = 6, ClassResourcePacks = 12, ClassShaders = 6552, ClassWorlds = 17;
     const int RelationRequired = 3;                                   // dependencies[].relationType：必要相依
@@ -263,14 +263,24 @@ public class CurseForgeService
     }
 
     // ---------- 整合包：線上安裝 ----------
-    public async Task<CfInstallResult> InstallModpackAsync(string projectId, IProgress<(string Stage, double Percent)>? progress = null, CancellationToken ct = default)
+    /// fileId＝指定整合包的某個檔案（null＝自動挑最新的正式版）。
+    public async Task<CfInstallResult> InstallModpackAsync(string projectId, IProgress<(string Stage, double Percent)>? progress = null, CancellationToken ct = default, int? fileId = null)
     {
         // 1. 找整合包的最新檔案
         progress?.Report(("取得整合包資訊", 0));
         string packName; int packFileId; string? packUrl; string packFileName; (string Algo, string Value)? packHash;
         using (var info = await Api(HttpMethod.Get, $"mods/{projectId}", null, ct))
             packName = Str(info.RootElement.GetProperty("data"), "name") ?? "CurseForge 整合包";
-        using (var files = await Api(HttpMethod.Get, $"mods/{projectId}/files?pageSize=20", null, ct))
+        if (fileId is int want)
+        {
+            using var one = await Api(HttpMethod.Get, $"mods/{projectId}/files/{want}", null, ct);
+            var f1 = one.RootElement.GetProperty("data");
+            packFileId = want;
+            packFileName = Str(f1, "fileName") ?? "pack.zip";
+            packUrl = Str(f1, "downloadUrl");
+            packHash = HashOf(f1);
+        }
+        else using (var files = await Api(HttpMethod.Get, $"mods/{projectId}/files?pageSize=20", null, ct))
         {
             var arr = files.RootElement.GetProperty("data").EnumerateArray().ToList();
             if (arr.Count == 0) throw new InvalidOperationException("此整合包沒有可下載的檔案");

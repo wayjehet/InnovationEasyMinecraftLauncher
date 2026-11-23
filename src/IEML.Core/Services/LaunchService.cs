@@ -16,14 +16,21 @@ public class LaunchService : ILaunchService
     { _instances = instances; _accounts = accounts; }
 
     /// 包一層：啟動前的任何錯誤（驗證、下載、載入器安裝）也寫進遊戲日誌，再照常往上丟給 UI 顯示在 Status。
-    public async Task<int> LaunchAsync(Guid instanceId, IProgress<(string Stage, double Percent)>? progress = null, CancellationToken ct = default, Guid? accountIdOverride = null)
+    static string? JoinHost(string? a) => string.IsNullOrWhiteSpace(a) ? null : a.Trim().Split(':')[0];
+    static int JoinPort(string? a)
     {
-        try { return await LaunchCoreAsync(instanceId, progress, ct, accountIdOverride); }
+        var parts = a?.Trim().Split(':');
+        return parts is { Length: > 1 } && int.TryParse(parts[1], out var p) ? p : 25565;
+    }
+
+    public async Task<int> LaunchAsync(Guid instanceId, IProgress<(string Stage, double Percent)>? progress = null, CancellationToken ct = default, Guid? accountIdOverride = null, string? serverOverride = null)
+    {
+        try { return await LaunchCoreAsync(instanceId, progress, ct, accountIdOverride, serverOverride); }
         catch (OperationCanceledException) { GameLog.Append("=== 啟動已取消 ==="); throw; }
         catch (Exception ex) { GameLog.Append("=== 啟動失敗：" + ex.Message + " ==="); throw; }
     }
 
-    async Task<int> LaunchCoreAsync(Guid instanceId, IProgress<(string Stage, double Percent)>? progress, CancellationToken ct, Guid? accountIdOverride)
+    async Task<int> LaunchCoreAsync(Guid instanceId, IProgress<(string Stage, double Percent)>? progress, CancellationToken ct, Guid? accountIdOverride, string? serverOverride)
     {
         var cfg = await _instances.GetAsync(instanceId) ?? throw new InvalidOperationException("找不到實例");
         var accId = accountIdOverride ?? cfg.AccountId;
@@ -46,7 +53,8 @@ public class LaunchService : ILaunchService
             Session = session,
             MaximumRamMb = cfg.MaxMemoryMb,
             JavaPath = java.Path,
-            ServerIp = cfg.AutoJoinServer,
+            ServerIp = JoinHost(serverOverride ?? cfg.AutoJoinServer),     // 這次指定的伺服器優先於「自動加入」
+            ServerPort = JoinPort(serverOverride ?? cfg.AutoJoinServer),
             ExtraJvmArguments = (cfg.ExtraJvmArgs ?? "")
                 .Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(a => new MArgument(a)).ToArray()
         };

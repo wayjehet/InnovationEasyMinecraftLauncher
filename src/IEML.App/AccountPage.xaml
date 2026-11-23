@@ -1,0 +1,22 @@
+<UserControl x:Class="IEML.App.AccountPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Foreground="{StaticResource TextBrush}">
+  <UserControl.Resources>
+    <ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="PageStyles.xaml"/></ResourceDictionary.MergedDictionaries></ResourceDictionary>
+  </UserControl.Resources>
+  <DockPanel Margin="16">
+    <TextBlock x:Name="StatusText" DockPanel.Dock="Bottom" Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}"/>
+    <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+      <TextBlock Text="玩家名稱（離線帳號用，3～16 個英數字或底線）" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,4"/>
+      <TextBox x:Name="NameBox" Margin="0,0,0,8"/>
+      <WrapPanel>
+        <Button Content="新增離線帳號" Click="AddOffline_Click" Padding="10,5" Margin="0,0,6,6"/>
+        <Button Content="新增正版帳號" Click="AddMs_Click" Padding="10,5" Margin="0,0,6,6"/>
+        <Button Content="重新命名選取的離線帳號" Click="Rename_Click" Padding="10,5" Margin="0,0,6,6"/>
+        <Button Content="刪除選取的帳號" Click="Delete_Click" Padding="10,5" Margin="0,0,6,6"/>
+      </WrapPanel>
+    </StackPanel>
+    <ListBox x:Name="AccList" DisplayMemberPath="DisplayName" SelectionChanged="AccList_SelectionChanged"/>
+  </DockPanel>
+</UserControl>

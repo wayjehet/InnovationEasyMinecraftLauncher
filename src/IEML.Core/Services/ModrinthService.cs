@@ -5,7 +5,7 @@ using IEML.Core.Contracts;
 using IEML.Core.Models;
 namespace IEML.Core.Services;
 
-public class ModrinthService : IModrinthService
+public partial class ModrinthService : IModrinthService
 {
     static readonly HttpClient Http = Create();
     static HttpClient Create()

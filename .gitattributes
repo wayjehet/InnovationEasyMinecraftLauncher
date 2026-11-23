@@ -1,0 +1,5 @@
+# 第三方二進位檔不要被換行轉換
+third_party/** binary
+*.exe binary
+*.dll binary
+*.DLL binary

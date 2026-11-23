@@ -27,7 +27,7 @@ public interface IInstanceService
 public interface ILaunchService
 {
     /// Resolve account for instance -> install version/loader -> launch.
-    Task<int> LaunchAsync(Guid instanceId, IProgress<(string Stage, double Percent)>? progress = null, CancellationToken ct = default, Guid? accountIdOverride = null);
+    Task<int> LaunchAsync(Guid instanceId, IProgress<(string Stage, double Percent)>? progress = null, CancellationToken ct = default, Guid? accountIdOverride = null, string? serverOverride = null);
 }
 
 public enum ContentKind { Mod, ResourcePack, Shader, Modpack }
@@ -42,7 +42,7 @@ public record ContentHit(string ProjectId, string Title, string Description, str
 public record ModrinthQuery(string Text, ContentKind Kind, string? McVersion = null, string? Loader = null,
     string? Category = null, string? Environment = null, string Sort = "relevance", int Offset = 0, int Limit = 20);
 public record ContentPage(IReadOnlyList<ContentHit> Hits, int Total);
-public record FilterOption(string Id, string Name);
+public record FilterOption(string Id, string Name) { public override string ToString() => Name; }
 public record UpdateInfo(string OldPath, string NewFileName, string Url, string? Sha1, string VersionName);
 
 public interface IModrinthService

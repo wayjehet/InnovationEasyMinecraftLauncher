@@ -1,0 +1,21 @@
+<UserControl x:Class="IEML.App.ServerPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Foreground="{StaticResource TextBrush}">
+  <UserControl.Resources>
+    <ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="PageStyles.xaml"/></ResourceDictionary.MergedDictionaries></ResourceDictionary>
+  </UserControl.Resources>
+  <DockPanel Margin="16">
+    <DockPanel DockPanel.Dock="Top">
+      <Button DockPanel.Dock="Right" Content="查詢" Click="Ping_Click" Padding="14,4" Margin="8,0,0,0"/>
+      <TextBox x:Name="AddrBox" ToolTip="例如 mc.example.com 或 1.2.3.4:25565"/>
+    </DockPanel>
+    <TextBlock x:Name="Result" DockPanel.Dock="Top" Margin="0,10" TextWrapping="Wrap"/>
+    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+      <Button Content="加入收藏" Click="Fav_Click" Padding="10,3" Margin="0,0,8,0"/>
+      <Button Content="重新整理收藏" Click="Refresh_Click" Padding="10,3" Margin="0,0,8,0"/>
+      <Button Content="瀏覽公開伺服器" Click="Browse_Click" Padding="10,3"/>
+    </StackPanel>
+    <ListBox ItemsSource="{Binding Saved}"/>
+  </DockPanel>
+</UserControl>

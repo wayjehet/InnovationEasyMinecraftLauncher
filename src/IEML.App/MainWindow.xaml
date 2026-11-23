@@ -6,17 +6,15 @@
         Background="{StaticResource WindowBg}" Foreground="{StaticResource TextBrush}">
   <Grid>
     <!-- 程式繪製的簡潔背景（同網頁橫幅的深綠漸層）；Assets\background.png 存在時會蓋過它 -->
-    <Rectangle IsHitTestVisible="False">
-      <Rectangle.Fill>
+    <local:SkinBorder Slot="background" Fit="Cover" IsHitTestVisible="False">
+      <local:SkinBorder.Background>
         <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
           <GradientStop Color="#FF0F1F1A" Offset="0"/>
           <GradientStop Color="#FF12302A" Offset="0.5"/>
           <GradientStop Color="#FF0F0F0F" Offset="1"/>
         </LinearGradientBrush>
-      </Rectangle.Fill>
-    </Rectangle>
-    <!-- 背景圖：Assets\background.png（撐滿並裁掉多出的邊） -->
-    <Image Stretch="UniformToFill" Source="{Binding Converter={StaticResource Asset}, ConverterParameter=background.png}"/>
+      </local:SkinBorder.Background>
+    </local:SkinBorder>
 
     <Grid Margin="12">
       <Grid.ColumnDefinitions>
@@ -26,7 +24,7 @@
       </Grid.ColumnDefinitions>
 
       <!-- 單一外框＋兩條分隔線（照草圖） -->
-      <Border Grid.ColumnSpan="3" CornerRadius="10" Background="{StaticResource PanelBg}"
+      <local:SkinBorder Slot="panel_main" Grid.ColumnSpan="3" CornerRadius="10" Background="{StaticResource PanelBg}"
               BorderBrush="{StaticResource LineBrush}" BorderThickness="1"/>
       <Rectangle Grid.Column="0" Width="1" HorizontalAlignment="Right" Margin="0,1" Fill="{StaticResource LineBrush}"/>
       <Rectangle Grid.Column="1" Width="1" HorizontalAlignment="Right" Margin="0,1" Fill="{StaticResource LineBrush}"/>
@@ -62,6 +60,7 @@
                 <Ellipse Fill="#FF263A36" Stroke="{StaticResource AccentBrush}" StrokeThickness="2"/>
                 <TextBlock Text="{Binding AvatarInitial}" FontSize="26" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 <Ellipse Margin="3"><Ellipse.Fill><ImageBrush ImageSource="{Binding AvatarUrl}" Stretch="UniformToFill"/></Ellipse.Fill></Ellipse>
+                <local:SkinBorder Slot="avatar_frame" IsHitTestVisible="False"/>
               </Grid>
             </Button>
             <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
@@ -79,18 +78,23 @@
             <ComboBox Style="{StaticResource DarkComboBox}" ItemsSource="{Binding Accounts}" DisplayMemberPath="DisplayName"
                       SelectedItem="{Binding SelectedAccount}" Margin="0,4,0,0"/>
             <TextBlock Text="{Binding Status}" Margin="0,16,0,6" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap"/>
-            <ProgressBar Style="{StaticResource DarkProgress}" Value="{Binding ProgressPercent}" Minimum="0" Maximum="100"/>
+            <ProgressBar Style="{StaticResource DarkProgress}" local:SmoothProgress.Value="{Binding ProgressPercent}" Minimum="0" Maximum="100"/>
           </StackPanel>
 
-          <Button Grid.Row="3" Height="56" Margin="0,0,0,8" Content="啟動" FontSize="22" FontWeight="Bold"
-                  Style="{StaticResource ArtButton}" local:ArtProps.File="btn_launch.png"
-                  Command="{Binding LaunchCommand}"/>
+          <Grid Grid.Row="3" Height="56" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <Button Content="啟動" FontSize="22" FontWeight="Bold"
+                    Style="{StaticResource ArtButton}" local:ArtProps.File="btn_launch"
+                    Command="{Binding LaunchCommand}"/>
+            <Button Grid.Column="1" Content="▾" Width="40" Margin="6,0,0,0" FontSize="16" Style="{StaticResource GhostButton}"
+                    Click="ServerMenu_Click" ToolTip="選一個伺服器，啟動後直接加入"/>
+          </Grid>
 
           <Grid Grid.Row="4" Height="40">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-            <Button Grid.Column="0" Margin="0,0,4,0" Content="實例設置" Style="{StaticResource GhostButton}"
+            <Button Grid.Column="0" Margin="0,0,4,0" Content="實例設置" Style="{StaticResource GhostButton}" local:ArtProps.File="btn_instance_settings"
                     Command="{Binding OpenSettingsCommand}"/>
-            <Button Grid.Column="1" Margin="4,0,0,0" Content="實例選擇" Style="{StaticResource GhostButton}"
+            <Button Grid.Column="1" Margin="4,0,0,0" Content="實例選擇" Style="{StaticResource GhostButton}" local:ArtProps.File="btn_instance_pick"
                     Command="{Binding OpenInstancePickerCommand}"/>
           </Grid>
         </Grid>
@@ -112,8 +116,16 @@
             <ItemsControl.ItemTemplate>
               <DataTemplate>
                 <!-- 小卡片：上面是頭像＋名稱（拖這一塊可移動），下面是「啟動」「設置」兩顆按鈕 -->
-                <Border Width="210" Height="104" CornerRadius="8" Background="{StaticResource PanelBg}"
-                        BorderBrush="{StaticResource LineBrush}" BorderThickness="1">
+                <local:SkinBorder Slot="card" Width="210" Height="104" CornerRadius="8" Background="{StaticResource PanelBg}"
+                        BorderThickness="1" Loaded="Card_Loaded">
+                  <Border.Style>
+                    <Style TargetType="Border">
+                      <Setter Property="BorderBrush" Value="{StaticResource LineBrush}"/>
+                      <Style.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/></Trigger>
+                      </Style.Triggers>
+                    </Style>
+                  </Border.Style>
                   <Grid Margin="10">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                     <Border Grid.Row="0" Background="Transparent" Cursor="SizeAll" ToolTip="拖拉移動位置"
@@ -135,23 +147,27 @@
                       <Button Grid.Column="1" Margin="4,0,0,0" Content="設置" Style="{StaticResource GhostButton}" Command="{Binding SettingsCommand}"/>
                     </Grid>
                   </Grid>
-                </Border>
+                </local:SkinBorder>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
-          <TextBlock Text="還沒有快捷啟動卡片&#10;到「實例設置」按「＋ 新增帳號卡片」" TextAlignment="Center" TextWrapping="Wrap"
-                     HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}">
-            <TextBlock.Style>
-              <Style TargetType="TextBlock">
+          <!-- 空狀態：沒有卡片時顯示說明＋新增按鈕（會浮動，見 Motion.Float） -->
+          <StackPanel x:Name="EmptyHint" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <StackPanel.Style>
+              <Style TargetType="StackPanel">
                 <Setter Property="Visibility" Value="Collapsed"/>
                 <Style.Triggers>
                   <DataTrigger Binding="{Binding Cards.Count}" Value="0"><Setter Property="Visibility" Value="Visible"/></DataTrigger>
                 </Style.Triggers>
               </Style>
-            </TextBlock.Style>
-          </TextBlock>
-          <Button Content="＋ 新增卡片" Style="{StaticResource GhostButton}" Command="{Binding OpenSettingsCommand}"
-                  HorizontalAlignment="Right" VerticalAlignment="Bottom" ToolTip="到實例設置新增帳號卡片"/>
+            </StackPanel.Style>
+            <TextBlock Text="還沒有快捷啟動卡片&#10;卡片可以一鍵用指定帳號啟動這個實例" TextAlignment="Center" TextWrapping="Wrap"
+                       Foreground="{StaticResource MutedBrush}"/>
+            <Button Content="＋ 新增卡片" Style="{StaticResource GhostButton}" Command="{Binding AddCardCommand}"
+                    Width="140" Height="36" Margin="0,14,0,0" HorizontalAlignment="Center"/>
+          </StackPanel>
+          <Button Content="＋ 新增卡片" Style="{StaticResource GhostButton}" Command="{Binding AddCardCommand}"
+                  HorizontalAlignment="Right" VerticalAlignment="Bottom" ToolTip="用目前選的帳號新增一張快捷卡片（要換帳號到實例設置 → 快捷卡片）"/>
         </Grid>
       </Border>
 
@@ -162,7 +178,7 @@
 
           <StackPanel Grid.Row="0">
             <Button Height="64" Style="{StaticResource NavButton}"
-                    local:ArtProps.File="btn_settings.png" Click="SettingsStage_Click">
+                    local:ArtProps.File="btn_settings" Click="SettingsStage_Click">
               <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
                 <Viewbox Width="24" Height="24" Margin="0,0,0,4"><Canvas Width="24" Height="24"><Path Style="{StaticResource NavIcon}" Data="M14.6,12 A2.6,2.6 0 1 1 9.4,12 A2.6,2.6 0 1 1 14.6,12 Z M18.2,12 A6.2,6.2 0 1 1 5.8,12 A6.2,6.2 0 1 1 18.2,12 Z M20.4,12 L22.9,12 M17.94,17.94 L19.71,19.71 M12,20.4 L12,22.9 M6.06,17.94 L4.29,19.71 M3.6,12 L1.1,12 M6.06,6.06 L4.29,4.29 M12,3.6 L12,1.1 M17.94,6.06 L19.71,4.29"/></Canvas></Viewbox>
                 <TextBlock Text="設置" HorizontalAlignment="Center"/>
@@ -170,7 +186,7 @@
             </Button>
 
             <Button Height="64" Style="{StaticResource NavButton}"
-                    local:ArtProps.File="btn_download.png" Click="DownloadStage_Click">
+                    local:ArtProps.File="btn_download" Click="DownloadStage_Click">
               <Button.Content>
                 <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
                   <Viewbox Width="24" Height="24" Margin="0,0,0,4"><Canvas Width="24" Height="24"><Path Style="{StaticResource NavIcon}" Data="M12,3 L12,15.5 M6.5,10.5 L12,16 L17.5,10.5 M4.5,20.5 L19.5,20.5"/></Canvas></Viewbox>
@@ -180,7 +196,7 @@
             </Button>
 
             <Button Height="64" Style="{StaticResource NavButton}"
-                    local:ArtProps.File="btn_p2p.png" Click="P2PStage_Click">
+                    local:ArtProps.File="btn_p2p" Click="P2PStage_Click">
               <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
                 <Viewbox Width="24" Height="24" Margin="0,0,0,4"><Canvas Width="24" Height="24"><Path Style="{StaticResource NavIcon}" Data="M9,3 H15 V8 H9 Z M12,8 V13 M5,13 H19M5,13 V16 M19,13 V16 M2.5,16 H7.5 V21 H2.5 Z M16.5,16 H21.5 V21 H16.5 Z"/></Canvas></Viewbox>
                 <TextBlock Text="P2P" HorizontalAlignment="Center"/>
@@ -188,7 +204,7 @@
             </Button>
 
             <Button Height="64" Style="{StaticResource NavButton}"
-                    local:ArtProps.File="btn_more.png" Click="MoreStage_Click">
+                    local:ArtProps.File="btn_more" Click="MoreStage_Click">
               <Button.Content>
                 <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
                   <Viewbox Width="24" Height="24" Margin="0,0,0,4"><Canvas Width="24" Height="24"><Path Style="{StaticResource NavIcon}" Data="M3.5,3.5 H10 V10 H3.5 Z M14,3.5 H20.5 V10 H14 Z M3.5,14 H10 V20.5 H3.5 Z"/></Canvas></Viewbox>
@@ -199,12 +215,31 @@
           </StackPanel>
 
           <Button Grid.Row="1" x:Name="MusicBtn" Height="44" Content="♪ 音樂" Style="{StaticResource NavButton}"
-                  local:ArtProps.File="btn_music.png" Click="MusicStage_Click"/>
+                  local:ArtProps.File="btn_music" Click="MusicStage_Click"/>
         </Grid>
       </Border>
 
-      <!-- ============ 功能切換覆層（中欄上方） ============ -->
-      <Border Grid.Column="1" x:Name="StageOverlay" Panel.ZIndex="50" Margin="14" CornerRadius="8"
+      <!-- 視窗內對話框層：新增實例、選實例、選 Java 等小對話框（蓋在所有頁面與提示條上；Esc 取消） -->
+      <Grid x:Name="ModalLayer" Grid.ColumnSpan="3" Panel.ZIndex="200" Visibility="Collapsed">
+        <Rectangle Fill="#B3000000"/>
+        <local:SkinBorder Slot="modal" x:Name="ModalBox" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="640" Padding="18" CornerRadius="10"
+                Background="#FF1C1C1C" BorderBrush="{StaticResource LineBrush}" BorderThickness="1">
+          <DockPanel>
+            <TextBlock x:Name="ModalTitle" DockPanel.Dock="Top" FontSize="16" FontWeight="Bold" Margin="0,0,0,12"/>
+            <ContentControl x:Name="ModalBody"/>
+          </DockPanel>
+        </local:SkinBorder>
+      </Grid>
+
+      <!-- 提示條（啟動成功、錯誤等；蓋在最上層，頁面開著也看得到） -->
+      <Border x:Name="ToastHost" Grid.ColumnSpan="3" Panel.ZIndex="100" Visibility="Collapsed" IsHitTestVisible="False"
+              HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,24" Padding="16,9" CornerRadius="8"
+              Background="#F2141414" BorderBrush="{StaticResource AccentBrush}" BorderThickness="1" MaxWidth="560">
+        <TextBlock x:Name="ToastText" TextWrapping="Wrap" Foreground="{StaticResource TextBrush}"/>
+      </Border>
+
+      <!-- ============ 功能切換覆層（蓋住左＋中欄，右欄保留） ============ -->
+      <Border Grid.Column="0" Grid.ColumnSpan="2" x:Name="StageOverlay" Panel.ZIndex="50" Margin="14" CornerRadius="8"
               Background="#F01C1C1C" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" Padding="16"
               Visibility="Collapsed">
         <Grid>
@@ -215,9 +250,11 @@
             <Button DockPanel.Dock="Left" Content="← 返回" Style="{StaticResource GhostButton}" Width="90" Click="StageBack_Click"/>
             <TextBlock x:Name="StageTitle" Margin="12,0,0,0" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
           </DockPanel>
-          <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+          <ScrollViewer x:Name="StageScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <WrapPanel x:Name="StageActions" Orientation="Horizontal" ItemWidth="220" ItemHeight="72"/>
           </ScrollViewer>
+          <!-- 需要固定高度的頁面（實例設置、更多）放這裡，不放進會捲動的 WrapPanel -->
+          <ContentControl x:Name="StageHost" Grid.Row="1" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
           <TextBlock Grid.Row="2" x:Name="StageFooter" Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,12,0,0"/>
         </Grid>
       </Border>

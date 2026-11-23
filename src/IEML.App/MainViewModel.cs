@@ -125,11 +125,21 @@ public partial class MainViewModel : ObservableObject
         ClampCards();
     }
 
-    partial void OnSelectedInstanceChanged(InstanceConfig? v) =>
-        SelectedAccount = Accounts.FirstOrDefault(a => a.Id == v?.AccountId);
+    // 使用者「目前選的帳號」：換實例時以它為準（不被新實例舊的綁定蓋掉），重新整理清單時也靠它還原
+    Guid? _currentAccountId;
+
+    partial void OnSelectedInstanceChanged(InstanceConfig? v)
+    {
+        if (v is null) { SelectedAccount = null; return; }
+        var wanted = _currentAccountId is { } cur ? Accounts.FirstOrDefault(a => a.Id == cur) : null;
+        // 還沒選過帳號（剛開啟）才退回該實例原本綁的帳號，再不行用第一個
+        wanted ??= Accounts.FirstOrDefault(a => a.Id == v.AccountId) ?? Accounts.FirstOrDefault();
+        SelectedAccount = wanted; // 變更時 OnSelectedAccountChanged 會把它綁到新實例
+    }
 
     partial void OnSelectedAccountChanged(Account? v)
     {
+        if (v is not null) _currentAccountId = v.Id; // 清單重新整理造成的 null 不算使用者的選擇
         // 正版帳號用皮膚頭像（第三方服務 mc-heads.net）；離線帳號沒有，介面會顯示預設圖
         AvatarUrl = v is { Type: AccountType.Microsoft, Uuid.Length: > 0 } ? $"https://mc-heads.net/avatar/{v.Uuid}/128" : null;
         if (v is null || SelectedInstance is null || SelectedInstance.AccountId == v.Id) return;
@@ -139,17 +149,19 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand] async Task AddInstance()
     {
-        var win = new NewInstanceWindow($"實例 {Instances.Count + 1}") { Owner = Application.Current.MainWindow };
-        if (win.ShowDialog() != true) return;
-        await _instances.CreateAsync(new InstanceConfig { Name = win.InstanceName, McVersion = win.McVersion, Loader = win.Loader });
+        if (Application.Current.MainWindow is not MainWindow mw) return;
+        NewInstancePanel? panel = null;
+        var name = $"實例 {Instances.Count + 1}";
+        if (!await mw.ShowModal("新增實例", close => panel = new NewInstancePanel(name, close), 380) || panel is null) return;
+        await _instances.CreateAsync(new InstanceConfig { Name = panel.InstanceName, McVersion = panel.McVersion, Loader = panel.Loader });
         await RefreshAsync();
     }
 
     [RelayCommand] async Task DeleteInstance()
     {
         if (SelectedInstance is null) return;
-        if (MessageBox.Show($"確定刪除實例「{SelectedInstance.Name}」？存檔與模組也會一併刪除。", "刪除實例",
-                MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        if (!await Dialogs.ConfirmAsync("刪除實例", $"確定刪除實例「{SelectedInstance.Name}」？存檔與模組也會一併刪除。", "刪除")) return;
+        if (SelectedInstance is null) return;
         await _instances.DeleteAsync(SelectedInstance.Id);
         SelectedInstance = null;
         await RefreshAsync();
@@ -158,27 +170,31 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand] async Task DeleteAccount()
     {
         if (SelectedAccount is null) return;
-        if (MessageBox.Show($"確定刪除帳號「{SelectedAccount.Name}」？", "刪除帳號",
-                MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        if (!await Dialogs.ConfirmAsync("刪除帳號", $"確定刪除帳號「{SelectedAccount.Name}」？", "刪除")) return;
+        if (SelectedAccount is null) return;
         await _accounts.RemoveAsync(SelectedAccount.Id);
         await RefreshAsync();
     }
 
     [RelayCommand] async Task OpenContent()
     {
-        new ContentWindow(SelectedInstance, new ModrinthService(_instances)) { Owner = Application.Current.MainWindow }.ShowDialog();
+        await ShowPage("模組與內容 (Modrinth)", "搜尋、安裝與管理模組、光影、資源包、整合包", new ContentView(SelectedInstance, new ModrinthService(_instances)));
         await RefreshAsync();
     }
 
-    [RelayCommand] void OpenServers() =>
-        new ServerWindow { Owner = Application.Current.MainWindow }.Show();
+    /// 在主畫面的覆蓋頁顯示頁面（取代彈出視窗）；回傳的 Task 在頁面關閉時完成。
+    static Task ShowPage(string title, string footer, System.Windows.UIElement page, bool scroll = false) =>
+        (Application.Current.MainWindow as MainWindow)?.ShowPage(title, footer, page, scroll: scroll) ?? Task.CompletedTask;
 
-    [RelayCommand] void OpenLog() =>
-        new LogWindow { Owner = Application.Current.MainWindow }.Show();
+    [RelayCommand] Task OpenServers() =>
+        ShowPage("伺服器查找", "收藏伺服器並查詢即時狀態", new ServerPage());
+
+    [RelayCommand] Task OpenLog() =>
+        ShowPage("遊戲日誌", "遊戲輸出與啟動錯誤", new LogPage());
 
     [RelayCommand] async Task OpenCurseForge()
     {
-        new CurseForgeWindow(_instances, SelectedInstance) { Owner = Application.Current.MainWindow }.ShowDialog();
+        await ShowPage("CurseForge 內容與整合包", "搜尋並安裝 CurseForge 內容", new CurseForgePage(_instances, SelectedInstance));
         await RefreshAsync();
     }
 
@@ -203,13 +219,12 @@ public partial class MainViewModel : ObservableObject
             if (!manual && UpdateSettings.SkipTag == up.Tag) return;
 
             var notes = up.Notes.Length > 500 ? up.Notes[..500] + "…" : up.Notes;
-            var ans = MessageBox.Show(Application.Current.MainWindow,
+            var ans = await Dialogs.ChoiceAsync("有新版本",
                 $"發現新版本 {up.Tag}（目前 {AppInfo.Version}）\n\n{notes}\n\n" +
-                "是＝下載並更新　否＝稍後　取消＝略過這個版本\n" +
                 $"（會驗證檔案雜湊{(UpdateService.SignatureEnabled ? "與簽章" : "")}；更新時會關閉並重新啟動啟動器，請先關閉遊戲。）",
-                "有新版本", MessageBoxButton.YesNoCancel, MessageBoxImage.Information);
-            if (ans == MessageBoxResult.Cancel) { UpdateSettings.SkipTag = up.Tag; return; }
-            if (ans != MessageBoxResult.Yes) return;
+                "下載並更新", "稍後", "略過這個版本");
+            if (ans == 2) { UpdateSettings.SkipTag = up.Tag; return; }
+            if (ans != 0) return;
 
             IsBusy = true; Status = "下載更新…"; ProgressPercent = 0;
             var dir = await UpdateService.DownloadAndVerifyAsync(up, new Progress<double>(p => ProgressPercent = p));
@@ -225,38 +240,38 @@ public partial class MainViewModel : ObservableObject
         finally { IsBusy = false; }
     }
 
-    [RelayCommand] void OpenMaps()
+    [RelayCommand] Task OpenMaps()
     {
-        if (SelectedInstance is null) { Status = "請先選一個實例（地圖會放進這個實例的 saves 資料夾）"; return; }
-        new MapsWindow(_instances, SelectedInstance) { Owner = Application.Current.MainWindow }.ShowDialog();
+        if (SelectedInstance is null) { Status = "請先選一個實例（地圖會放進這個實例的 saves 資料夾）"; return Task.CompletedTask; }
+        return ShowPage("地圖管理", "匯入、備份與瀏覽地圖", new MapsPage(_instances, SelectedInstance));
     }
 
     [RelayCommand] async Task OpenAccounts()
     {
-        new AccountWindow(_accounts) { Owner = Application.Current.MainWindow }.ShowDialog();
+        await ShowPage("帳號管理", "離線／Microsoft 帳號與重新命名", new AccountPage(_accounts));
         await RefreshAsync();
     }
 
     [RelayCommand] async Task OpenLauncherSettings()
     {
-        new LauncherSettingsWindow(this) { Owner = Application.Current.MainWindow }.ShowDialog();
+        await ShowPage("啟動器設定", "配色、素材與更新", new LauncherSettingsPage(this), scroll: true);
         await RefreshAsync();
     }
 
-    [RelayCommand] void OpenInstancePicker() =>
-        new InstancePickerWindow(this) { Owner = Application.Current.MainWindow }.ShowDialog();
+    [RelayCommand] Task OpenInstancePicker() =>
+        (Application.Current.MainWindow as MainWindow)?.ShowModal("選擇實例", close => new InstancePickerPanel(this, close), 420) ?? Task.CompletedTask;
 
-    [RelayCommand] void OpenSeedMap() =>
-        new SeedMapWindow(SelectedInstance) { Owner = Application.Current.MainWindow }.Show();
+    [RelayCommand] Task OpenSeedMap() =>
+        ShowPage("種子地圖", "結構與群系座標查詢", new SeedMapPage(SelectedInstance));
 
-    [RelayCommand] void OpenTerracotta() =>
-        new TerracottaWindow(_terracotta) { Owner = Application.Current.MainWindow }.Show();
+    [RelayCommand] Task OpenTerracotta() =>
+        ShowPage("P2P 連線（陶瓦聯機）", "開房、加入房間與查看連線狀態", new TerracottaPage(_terracotta), scroll: true);
 
     /// 啟動器關閉時結束陶瓦行程
     public void Shutdown() => _terracotta.StopBlocking();
 
-    [RelayCommand] void OpenRoom() =>
-        new RoomWindow(_easyTier) { Owner = Application.Current.MainWindow }.Show();
+    [RelayCommand] Task OpenRoom() =>
+        ShowPage("EasyTier 房間", "進階虛擬區域網路連線", new RoomPage(_easyTier), scroll: true);
 
     [RelayCommand] void AddMusicFolder()
     {
@@ -296,15 +311,35 @@ public partial class MainViewModel : ObservableObject
     {
         var inst = Instances.FirstOrDefault(i => i.Id == instanceId);
         if (inst is null) return;
-        var win = new InstanceSettingsWindow(inst, Accounts.ToList()) { Owner = Application.Current.MainWindow };
-        if (win.ShowDialog() == true) await _instances.SaveAsync(win.Config);
+        if (Application.Current.MainWindow is not MainWindow mw) return;
+        var (saved, server) = await mw.ShowInstanceSettingsPage(inst, Accounts.ToList());
+        if (saved) await _instances.SaveAsync(inst);
         await RefreshAsync();
+        if (saved && server is not null) await RunLaunch(inst.Id, SelectedAccount?.Id, server);   // 伺服器分頁的「啟動並加入」
+    }
+
+    /// 啟動鍵旁 ▾ 選的伺服器：啟動並直接加入（只這一次，不改設定）。
+    [RelayCommand] Task LaunchToServer(string address) =>
+        SelectedInstance is null || string.IsNullOrWhiteSpace(address)
+            ? Task.CompletedTask : RunLaunch(SelectedInstance.Id, SelectedAccount?.Id, address);
+
+    /// 用目前選的帳號為目前實例新增一張快捷卡片（位置由預設排列決定，之後可拖動）。
+    [RelayCommand] async Task AddCard()
+    {
+        var inst = SelectedInstance;
+        if (inst is null) { Status = "請先在左邊清單選一個實例（沒有實例的話先按「新增實例」）"; return; }
+        var acc = SelectedAccount ?? Accounts.FirstOrDefault();
+        if (acc is null) { Status = "請先建立帳號，才能新增快捷卡片"; return; }
+        inst.QuickCards.Add(new QuickLaunchCard { AccountId = acc.Id });
+        await _instances.SaveAsync(inst);
+        await RefreshAsync();
+        Status = $"已新增卡片：{acc.DisplayName}";
     }
 
     [RelayCommand] Task Launch() =>
-        SelectedInstance is null ? Task.CompletedTask : RunLaunch(SelectedInstance.Id, null);
+        SelectedInstance is null ? Task.CompletedTask : RunLaunch(SelectedInstance.Id, SelectedAccount?.Id); // 以畫面上目前選的帳號啟動，不依賴磁碟上的綁定
 
-    async Task RunLaunch(Guid instanceId, Guid? accountOverride)
+    async Task RunLaunch(Guid instanceId, Guid? accountOverride, string? server = null)
     {
         if (IsBusy) { Status = "正在啟動中，請稍候…"; return; }
         IsBusy = true; ProgressPercent = 0;
@@ -312,7 +347,7 @@ public partial class MainViewModel : ObservableObject
         {
             var prog = new Progress<(string Stage, double Percent)>(p =>
             { Status = $"{p.Stage} {p.Percent:0}%"; ProgressPercent = Math.Clamp(p.Percent, 0, 100); });
-            var pid = await _launcher.LaunchAsync(instanceId, prog, default, accountOverride);
+            var pid = await _launcher.LaunchAsync(instanceId, prog, default, accountOverride, server);
             Status = $"已啟動 (PID {pid})";
         }
         catch (Exception ex) { Status = "錯誤：" + ex.Message; }

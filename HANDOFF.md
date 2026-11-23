@@ -222,7 +222,7 @@ UI: "新增正版帳號" button; account lists show (正版)/(離線). Uncompile
 - 新檔 `App/TerracottaWindow.xaml(.cs)`：玩家名、開房、輸入房間碼加入、狀態說明（中文）、房間碼與直連位址（複製）、成員清單、返回待機。
 - 修改 `MainViewModel.cs`：`_terracotta`、`OpenTerracottaCommand`、`Shutdown()`；`MainWindow.xaml`：右欄「P2P」改開陶瓦視窗，原 EasyTier 房間移到「更多 → EasyTier 房間（進階）」；`MainWindow.xaml.cs`：`OnClosed` 呼叫 `Vm.Shutdown()` 結束陶瓦行程。
 - EasyTierService／RoomWindow 沒有刪（保留為進階選項）。若之後確定只用陶瓦，可以移除它們。
-- 待實測：1) Release 附件命名與 .exe／.zip 格式 2) 陶瓦在 Windows 是否需要管理員權限（HMCL 的做法是一般權限啟動，Windows 下 `--hmcl` 行程會 fork 子行程作為真正的工作行程，所以 `Process` 物件不一定代表實際行程，結束靠 `/panic`） 3) 房主流程：進世界→對區域網路開放→開房→host-ok 4) 加入後「陶瓦聯機大廳」是否出現在多人遊戲列表（官方說從這裡加入會略過正版驗證）。
+- 待實測：1) 下載 .tar.gz 解壓後 exe 與 DLL 的位置、陶瓦能否啟動 2) 陶瓦在 Windows 是否需要管理員權限（HMCL 的做法是一般權限啟動，Windows 下 `--hmcl` 行程會 fork 子行程作為真正的工作行程，所以 `Process` 物件不一定代表實際行程，結束靠 `/panic`） 3) 房主流程：進世界→對區域網路開放→開房→host-ok 4) 加入後「陶瓦聯機大廳」是否出現在多人遊戲列表（官方說從這裡加入會略過正版驗證）。
 
 ## 網頁版 Claude 追加（第二輪）：介面改版、Terracotta 修正、預覽稿（全部未編譯、未實測）
 
@@ -258,7 +258,7 @@ https://claude.ai/artifact/TirswMEzdA8uzL7dUzt1tT ——使用者看過，說「
 
 ### 還沒驗證／已知風險
 - 整個專案**從未編譯**。推上 GitHub 後若 Actions 報錯，先看 `Publish` 步驟的 `error CS…`／`error MC…`。
-- 陶瓦 Release 附件檔名是猜的（含 windows＋x86_64、.exe/.zip）；找不到會提示手動放 `tools\terracotta\terracotta*.exe`。
+- 陶瓦 Release 附件檔名已核對（v0.4.2 共 15 個附件，Windows 為 `terracotta-0.4.2-windows-x86_64-pkg.tar.gz`／`-windows-arm64-pkg.tar.gz`，格式是 **.tar.gz**，原本只認 .exe/.zip 會失敗）。已加 `ExtractTarGz`（`TarReader`＋`GZipStream`，只收一般檔案、保留相對路徑、擋路徑穿越、200 MB 上限）。尚未實測：tar 裡實際有哪些檔（是否含 `VCRUNTIME140.DLL`、有無子資料夾，`FindExe` 會遞迴找 `terracotta*.exe`）。找不到仍會提示手動放進 `tools\terracotta\`。
 - 向量圖標用 `Viewbox` ＋ `Canvas`，`Stroke` 綁 `RelativeSource AncestorType=Button`；若綁定警告或不變色，改成在 `NavButton` 範本裡直接放 `ContentPresenter` 並以 `TextElement.Foreground` 傳遞。
 - 使用者希望整體**更專業**；下載頁漏掉實例／載入器就是被點名的例子。搬頁面時注意資訊完整度，不要只放示意項目。
 
@@ -346,3 +346,212 @@ Contracts.cs（只加不改既有簽章）：`ContentHit` 多了選填的 `Downl
 - 從舊版帶進來：`native/ieml_cubiomes.dll`（種子地圖用）。`.gitignore` 加 `!native/ieml_cubiomes.dll` 例外，否則提交時會被忽略。
 - 不採用：舊版大寫的 `.github/workflows/Build.yml`（和 `build.yml` 重複且功能較少）。GitHub 倉庫上如果還在，要手動刪除。
 - 未編譯、未實測：這次合併沒有 .NET 環境，只做了靜態檢查（引用的成員、命令名稱、套件參考皆存在）。請先 `dotnet build` 一次。
+
+## Update 15 — 設置頁崩潰修正
+- 原因：設置頁「強調色／圖標／外框」色碼輸入框每按一次鍵就把文字丟給 `ColorConverter.ConvertFromString`，輸入到一半或刪除時（例如 `#00F`、空白）會丟 `FormatException`；加上整個程式沒有全域例外處理，錯誤沒人接，視窗就直接消失。
+- 修正：色碼先用 `TryParseColor` 驗證；「開啟素材資料夾」加 try/catch；`ApplyTheme` 改同步寫檔並吞例外；輸入框預設顯示目前主題色。
+- 新增 `App.xaml.cs` 全域例外處理：介面執行緒的未處理例外會寫入 `%AppData%\InnovationEasyLauncher\crash.log` 並跳提示、程式繼續執行；其他執行緒的例外只記錄。
+- 未編譯、未實測。
+
+
+## Update 16 — 介面改版規劃：少用彈出視窗（**尚未實作，只是規劃**）
+
+### 背景（使用者回饋）
+- 實例設置、模組與內容等都是獨立的彈出視窗，一個開過一個容易搞不清楚自己在哪一層，使用上不適應。
+- 實例設置應該把「模組、光影、資源包、伺服器」也包含進來，而不只是基本欄位。
+- 「更多」頁的按鈕希望固定排好，不要隨視窗大小跑位。
+
+### 現況（改版前）
+- `InstanceSettingsWindow`（xaml 51 行＋cs 119 行）是彈出視窗，只有：名稱、最大記憶體、Minecraft 版本、載入器、載入器版本（可重新整理）、Java 路徑、額外 JVM 參數、快捷啟動卡片（新增／刪除），按鈕為「保存」「取消」。
+- `ContentWindow` 是另一個彈出視窗，有「搜尋與安裝」「已安裝管理」兩個分頁；已安裝管理已能依類型（`ContentKind`：模組／光影／資源包／整合包）切換，並支援拖放匯入。
+- `DownloadStageControl`（下載頁，已嵌在中欄）也有「已安裝」分頁，**和 ContentWindow 的已安裝管理功能看起來重複**。
+- `ServerWindow`（伺服器查找）、日誌、種子地圖、地圖管理、帳號、陶瓦、EasyTier、公開伺服器仍是彈出視窗，由 `MainViewModel` 的 `Open*Command` 開啟。
+- 主畫面已有「頁面」機制：`MainWindow.xaml` 的 `StageOverlay`（中欄，`Panel.ZIndex=50`）搭配 `StageActions`（`WrapPanel`，`ItemWidth=220`、`ItemHeight=72`）、`ShowStage()`、`StageBack_Click`；設置、下載、P2P、更多、音樂都走這條路。`DownloadStageControl` 就是嵌入此處的 `UserControl` 範例。
+- 「更多」頁（`MoreStage_Click` → `AddStageAction`）用 `WrapPanel` 流動排版，視窗大小改變時按鈕位置會跟著變。
+
+### 規劃
+1. **實例設置改成頁面，內含分頁**：基本（現有欄位）｜模組｜光影｜資源包｜伺服器｜快捷卡片。
+   - 模組／光影／資源包：把 `ContentWindow` 抽成 `UserControl`（比照 `DownloadStageControl`），各分頁鎖定一種 `ContentKind`，沿用既有搜尋、安裝、啟用／停用、刪除、更新、拖放匯入。
+   - 整併重複功能：每個實例的內容只在實例設置頁管理；下載頁專心做「建立實例、全域搜尋、匯入整合包、地圖」。
+2. **彈出視窗只留小東西**：確認對話框、登入、選 Java、選檔案等。日誌、種子地圖、地圖管理、帳號、陶瓦、EasyTier、公開伺服器之後逐步改成頁面。
+3. **「更多」固定排列**：把 `WrapPanel` 換成固定格子（2 欄 × 3 列，格子大小固定），順序不變，例如：伺服器查找／遊戲日誌、種子地圖／地圖管理、帳號管理／（預留）。
+
+### 建議的實作順序（每階段都要能編譯並可單獨回退）
+1. 「更多」固定排列（改動最小，先做）。
+2. 實例設置頁：先只搬「基本」與「快捷卡片」，並決定保存方式與返回行為。
+3. 搬入模組、光影、資源包分頁（抽 `ContentWindow` 為 `UserControl`），再處理下載頁「已安裝」重複功能。
+4. 伺服器分頁（等下方問題確認）。
+5. 其他大型彈出視窗改頁面。
+
+### 設計限制與待決定
+- 中欄約 551 px 寬（視窗預設 980×640，欄寬比約 311:551:117），放模組清單偏窄。選項：放大預設視窗、或頁面開啟時暫時蓋住左欄。
+- 切換頁面時未儲存的設定如何處理：自動儲存，或切換時提示。
+- 頁面的返回路徑：實例設置頁內的分頁切換不應被「← 返回」打斷；返回應回到主畫面。
+- **待確認**：「伺服器」分頁指的是「這個實例的伺服器清單（收藏、一鍵加入）」，還是日後的「開服系統」（見 `SERVER-PROPOSAL.md`）？目前假設前者，尚未確認。
+
+### 風險
+- 沒有編譯環境，介面大改風險高；務必分階段、每階段先 `dotnet build` 並實測再繼續。
+- 抽出 `UserControl` 時，注意 `ContentWindow` 內使用 `Window` 專屬成員（`Owner`、`DialogResult`、`Close()`）與 `MessageBox` 的 owner 參數，需改為相對於宿主視窗。
+- 這份只是規劃，尚未改任何程式碼。
+
+
+## Update 17 — 帳號顯示與換實例時的帳號（未編譯、未實測）
+- 問題 1：主畫面「使用帳號」下拉框顯示 `IEML.Core.Models.Account`（型別名稱）而不是帳號名。修正：`Account` 覆寫 `ToString()` 回傳 `DisplayName`（`Models.cs`）。`DarkComboBox` 範本的選取項顯示沒吃到 `DisplayMemberPath` 的真正原因未查，之後可改用明確的 `ItemTemplate`。
+- 問題 2：換實例後，帳號仍是舊實例的／不是使用者目前選的。修正（`MainViewModel.cs`）：
+  - 新增 `_currentAccountId`＝使用者目前選的帳號（`OnSelectedAccountChanged` 在非 null 時記錄；清單重新整理造成的 null 不算）。
+  - `OnSelectedInstanceChanged`：優先選 `_currentAccountId` 對應的帳號，並由 `OnSelectedAccountChanged` 綁到新實例；剛開啟、還沒選過時才退回該實例原本綁的帳號，再不行用第一個帳號。
+  - `Launch` 改成 `RunLaunch(SelectedInstance.Id, SelectedAccount?.Id)`：以畫面上選的帳號啟動，不再依賴磁碟上的 `AccountId`（原本 `BindAccountAsync` 是 fire-and-forget，沒有等待也沒有鎖）。
+- 設計變更：帳號選擇現在是「全域目前帳號」，換實例不會換帳號；快捷卡片仍用卡片自己的帳號。若想改回「每個實例各自記帳號」，把 `OnSelectedInstanceChanged` 還原成直接取 `v.AccountId`、`Launch` 傳 `null` 即可。
+- 待實測：選帳號 A → 切到另一個實例，下拉框仍是 A，啟動用 A；重新整理（新增實例）後帳號不跳掉；刪除目前帳號後退回第一個帳號。
+- 其他已知（尚未處理）：深色樣式只涵蓋主畫面，TextBox／ComboBox／CheckBox 在下載頁等仍是淺色預設，文字難讀；CF 金鑰在新的設置頁沒有入口（`LauncherSettingsWindow` 沒有按鈕呼叫它）；設置頁配色計畫改成 R、G、B 拉條並讓每個區塊可調。
+
+
+## Update 18 — 深色輸入框、頁面蓋住左欄、頁面動畫（未編譯、未實測）
+- `DownloadStageControl.xaml`：`UserControl.Resources` 加 `TextBox`／`CheckBox` 隱含樣式（深色底、白字、青色游標，**只作用在下載頁**，其他視窗不變）；9 個唯讀下拉框改套 `DarkComboBox`。三個可編輯下拉（`VersionBox`、`LoaderVersionBox`、`FilterMcBox`）仍是預設淺色（`DarkComboBox` 不支援可編輯）。
+- `DarkComboBox` 選取項不吃 `DisplayMemberPath`（帳號下拉顯示型別名稱的同一個問題）：改在 `FilterOption`（record）與 `InstanceConfig` 覆寫 `ToString()` 回傳 `Name`，之後新增物件型別的下拉項目也要記得覆寫。
+- `MainWindow.xaml`：`StageOverlay` 改成 `Grid.Column="0" Grid.ColumnSpan="2"`，頁面蓋住左＋中欄（約 862px），右欄保留。**啟動進度條在左欄，頁面開著時看不到**；之後可在頁面底部加細狀態列。
+- 新檔 `Motion.cs`：`FadeSlideIn`（淡入＋右滑 14px、250ms、CubicEase）、`FadeOut`（140ms 後執行回呼）；`SystemParameters.ClientAreaAnimation` 關閉時一律跳過。`ShowStage` 呼叫 `FadeSlideIn`，`StageBack_Click` 改成淡出後才 Collapsed。
+- 還沒做的動畫（UI-SPEC「動畫」一節）：按鈕滑過／按下過渡、卡片進場與拖動、右欄圖標放大、進度條流光、列表依序淡入、toast、空狀態浮動。
+- 待實測：下載頁輸入框／下拉框文字清楚；切換頁面有淡入滑入、返回有淡出；覆蓋頁蓋住啟動按鈕後右欄仍可切換；開啟 Windows「減少動畫」時無動畫但功能正常。
+
+
+## Update 19 — 按鈕與卡片動畫（未編譯、未實測）
+- `Theme.xaml`：`ArtButton`／`CardButton` 滑過改成平滑上浮（120ms 上、180ms 回，CubicEase）；`ArtButton` 按下縮到 96%；`NavButton` 滑過圖示放大 1.1 倍、左側亮條淡入淡出；`DarkProgress` 加流光（白色漸層由左掃到右，1.4 秒循環，EventTrigger Loaded 啟動）。範本裡用 `Tt`／`Sc`／`NavSc`／`ShimmerTt` 命名的 transform 當動畫目標。
+- `Motion.cs`：`FadeSlideIn` 加 `delayMs`；新增 `Stagger(Panel)`（清單依序淡入，每項 45ms、上限 360ms）與 `CardIn(el, index)`（浮起 14px＋淡入＋96%→100%，300ms，每張錯開 60ms；結束後清掉動畫與 transform，不影響拖拉）。系統「減少動畫」時 `Motion` 內的動畫一律跳過。
+- `MainWindow.xaml(.cs)`：卡片 Border 加 `Loaded="Card_Loaded"`（呼叫 `Motion.CardIn`），滑過邊框變青色；「P2P」「更多」頁項目呼叫 `StaggerActions()`。
+- 限制：Theme.xaml 裡的 Storyboard（按鈕滑過、流光）不會看「減少動畫」設定，仍會播放；發光 Effect 仍是瞬間切換（共用的 Effect 資源無法動畫）；流光一直在跑（Indicator 寬度為 0 時看不到）。
+- 待實測：`Storyboard.TargetName` 指到 ControlTemplate 內的 Freezable（Tt／Sc）能否編譯；進度條流光是否被圓角外框裁切；卡片進場後拖拉正常；重新整理實例時卡片會重播進場。
+- 還沒做：toast、空狀態浮動、進度條數值平滑。
+
+
+## Update 20 — 補完動畫：提示條、空狀態浮動、進度條平滑（未編譯、未實測）
+- `Motion.cs`：新增 `Float`（空狀態文字上下浮動，±5px、2.2 秒、SineEase 循環）、`Toast`（滑入 220ms → 停留 → 淡出 260ms）、`SmoothProgress` 附加屬性（`local:SmoothProgress.Value`：數值增加時 250ms 滑過去，變小或「減少動畫」時直接跳）。
+- `MainWindow.xaml`：進度條改綁 `local:SmoothProgress.Value`（原本 `Value=`）；新增 `ToastHost`（Panel.ZIndex 100、蓋在所有頁面上、不攔截滑鼠）；空狀態文字命名 `EmptyHint`。
+- `MainWindow.xaml.cs`：監聽 `MainViewModel.Status`，以字串判斷：開頭「錯誤」或含「失敗」→ 紅框提示 4.5 秒；開頭「已啟動」「已新增」「目前已是最新」→ 青框 2.2 秒。**以字串比對，Status 文字改了這裡要跟著改。** 公開方法 `ShowToast(text, error)` 可供其他地方呼叫；連續觸發以最新的為準。
+- 待實測：啟動進度條是否平滑前進、重設時是否直接歸零；提示條在頁面開著時可見；空狀態浮動只在沒有卡片時看到；ProgressBar 的 `BeginAnimation` 與綁定同時存在時，動畫結束後 Value 是否停在目標值（HoldEnd，預期可以）。
+- UI-SPEC「動畫」一節現已全部有對應實作。
+
+
+## Update 21 — 實例設置改成頁面、「更多」固定格子（未編譯、未實測）
+Update 16 規劃的第 1～3 階段一次做完（第 4 階段「伺服器」分頁沒做，見下）。
+- **「更多」固定排列**：`MoreStage_Click` 改用 `UniformGrid`（2 欄 × 3 列，高度 3×84），順序：伺服器查找／遊戲日誌、種子地圖／地圖管理、帳號管理／（預留空格）。放在新的 `StageHost`，不再用會流動的 WrapPanel，視窗縮放不會跑位。
+- **覆蓋頁多一個固定高度容器**：`MainWindow.xaml` 的 `StageOverlay` 內，`StageScroll`（原本的 ScrollViewer＋WrapPanel）與新的 `StageHost`（ContentControl）二選一；`ShowStage` 會重設成預設的 ScrollViewer。需要自己管捲動的頁面（實例設置、更多）放 `StageHost`。
+- **實例設置頁**：新檔 `InstanceSettingsPage.xaml(.cs)`（UserControl），分頁：基本｜模組｜光影｜資源包｜快捷卡片。「基本」「快捷卡片」沿用舊視窗邏輯（載入器版本清單、Java 選擇、換載入器警告、卡片新增刪除）；底部「保存／取消」。`MainViewModel.OpenSettingsFor` 改呼叫 `MainWindow.ShowInstanceSettingsPage`（回傳 true＝要存檔）。
+  - **取消／按「← 返回」會還原修改**（舊視窗的雙向綁定其實取消了也會改到 Config）：開頁時用 JSON 備份，`Discard()` 用反射寫回。
+  - 舊的 `InstanceSettingsWindow` 已刪除。
+- **ContentWindow → ContentView**：邏輯搬到新的 `ContentView`（UserControl，深色輸入框／清單／分頁／下拉），`ContentWindow` 變成只包一層的薄視窗（還能開，背景改深色）。新增 `ContentView.LockKind(kind)`：隱藏類型下拉，鎖定成單一類型。實例設置頁的模組／光影／資源包三個分頁各放一個 ContentView，**第一次切到該分頁才建立**（避免一開頁就連線三次）。搜尋、安裝、已安裝管理（啟用／停用／刪除／更新）、拖放匯入都沿用；這三個分頁的變更直接生效，不用按保存。
+- `Theme.xaml`：新增 `DarkTabControl`／`DarkTabItem`（底線式分頁，非全域，頁面用 BasedOn 套用）。
+- **沒做／待決定**：「伺服器」分頁（仍待確認是「實例的伺服器清單」還是「開服系統」）；下載頁（`DownloadStageControl`）的「已安裝」分頁與實例設置頁的內容管理功能重複，還沒整併；日誌、種子地圖、地圖管理、帳號、陶瓦、EasyTier、公開伺服器仍是彈出視窗。
+- 待實測：1) 實例設置頁開啟、切分頁、保存後主畫面更新；2) 取消後名稱等欄位確實還原；3) 三個內容分頁各自只管一種類型、拖放 .jar／.zip 匯入仍可用（`Window_PreviewDrop` 仍用 `Tabs.SelectedIndex == 1` 判斷是否在「已安裝」分頁；ContentView 內部的 Tabs 沒變）；4) 內容頁裡深色 ComboBox 的選取項是否顯示名稱（FilterOption 有覆寫 ToString）；5) `UniformGrid` 在 `StageHost` 內是否撐滿寬度；6) 「更多」頁按鈕點下去仍會開對應視窗；7) `Style="{x:Null}"` 在 UserControl.Resources 有隱含樣式時能否還原成預設（可編輯下拉用）。
+
+
+## Update 22 — 實例設置「伺服器」分頁（未編譯、未實測）
+確認：「伺服器」＝**這個實例記錄的伺服器清單**（不是開服系統）。
+- `Models.cs`：新增 `InstanceServer { Name, Address }`；`InstanceConfig.Servers`（`List<InstanceServer>`）。舊的 instance.json 沒有這欄位會得到空清單，不影響舊資料。`AutoJoinServer` 沿用，現在由這個分頁設定。
+- `InstanceSettingsPage`：新分頁「伺服器」（在「模組／光影／資源包」之後、「快捷卡片」之前）。功能：新增（名稱可留空、位址必填、不可重複）、刪除、複製位址、「設為自動加入／取消自動加入」（★，同時只能一個）、「更新狀態」（`ServerPingService.PingAsync`，含 SRV；顯示在線人數／延遲／版本／MOTD）。第一次切到分頁會自動查一次全部。**要按「保存」才寫入實例**（取消會還原）。新類別 `ServerRow`（放在同檔）。
+- `LaunchService`：`ServerIp`／`ServerPort` 改成把 `AutoJoinServer` 拆成 host 與 port（沒寫埠＝25565）。**之前把「host:port」整串塞進 ServerIp，帶埠的位址會連不上。** `ServerPort` 是 CmlLib `MLaunchOption` 的屬性，編譯時請確認名稱。
+- 沒做：不讀寫遊戲本身的 `servers.dat`（遊戲內多人遊戲清單不會跟這份同步）。要同步的話需要 NBT 讀寫，且重寫時會丟掉伺服器圖示等欄位，所以先不動。「一鍵加入」目前是「啟動時自動加入」，沒有「選一個伺服器直接啟動」的按鈕。全域收藏（`servers.json`、更多 → 伺服器查找）仍獨立存在，沒有互通。
+- 待實測：自動加入真的進到伺服器（含帶埠位址）；新增／刪除／保存／取消還原；切分頁自動查詢不卡 UI；`ServerRow` 內 `Run` 綁定顯示 ★ 與名稱。
+
+
+## Update 23 — 下載頁整併「已安裝」、伺服器「啟動並加入」（未編譯、未實測）
+- **下載頁（`DownloadStageControl`）**：移除「已安裝」分頁與 `InstalledPanel`／`RefreshInstalled_Click`（它只顯示項目數量，沒有管理功能，實際管理在實例設置頁的模組／光影／資源包分頁）。原本藏在裡面的「匯入本機整合包」改成頁首的獨立按鈕「匯入整合包」（遊戲／內容／匯入整合包／地圖）；匯入結果改用對話框顯示（不再有狀態列）。`ImportLocal_Click` 本身邏輯沒改，匯入期間沒有進度提示（按鈕按下後畫面看起來沒反應直到跳出對話框）。
+- **啟動並加入**：實例設置 →「伺服器」每列新增「啟動並加入」。按下＝跟「保存」同一流程（含換載入器確認，按「否」就不啟動）→ 關閉設置頁 → 直接啟動這個實例並進入該伺服器，**只這一次**，不改變 ★ 自動加入設定。
+  - `ILaunchService.LaunchAsync`／`LaunchService` 新增 `string? serverOverride`（優先於 `cfg.AutoJoinServer`）。
+  - `InstanceSettingsPage.LaunchServer` → `MainWindow.ShowInstanceSettingsPage` 回傳 `(bool Saved, string? Server)` → `MainViewModel.OpenSettingsFor` 在保存、重新整理後呼叫 `RunLaunch(inst.Id, SelectedAccount?.Id, server)`。啟動用的是畫面上目前選的帳號（跟主畫面開始鍵一致）。
+- 沒做：主畫面沒有「選伺服器直接啟動」的入口（目前只能從實例設置進去）；若要加，建議在開始鍵旁做下拉，列出該實例的 `Servers`，直接呼叫 `RunLaunch(..., server)`。
+- 待實測：帶埠位址進得去；「啟動並加入」後設置頁關閉、進度條開始跑；匯入整合包按鈕仍能匯入；下載頁沒有殘留對 `InstalledStatus` 等名稱的引用（已用 grep 確認 .xaml/.cs 都沒有）。
+
+
+## Update 24 — 空狀態新增按鈕、啟動鍵旁的伺服器下拉（未編譯、未實測）
+- **空狀態**：`EmptyHint` 從單純文字改成 `StackPanel`（說明＋置中的「＋ 新增卡片」按鈕），沒有卡片（`Cards.Count == 0`）時才顯示，仍會浮動（`Motion.Float`）。右下角原本的「＋ 新增卡片」按鈕也一起改成新指令。
+- **`AddCardCommand`**（`MainViewModel`）：直接用「目前選的帳號」（沒選就用第一個）為目前實例新增一張快捷卡片，存檔、重新整理，狀態列顯示「已新增卡片：帳號名」（會跳提示條）。**不再開實例設置頁**；要換卡片綁的帳號到實例設置 → 快捷卡片。沒有實例或沒有帳號時用狀態列提示。位置由既有的預設排列決定（沒擺過位置的卡片）。
+- **啟動鍵旁 ▾**：左欄啟動鍵改成一列（啟動＋小按鈕「▾」）。按 ▾ 彈出選單（`ServerMenu_Click`，程式碼動態建立 `ContextMenu`），列出目前實例的 `Servers`，點一個＝`LaunchToServerCommand` → `RunLaunch(..., server)`，啟動並直接加入（只這一次，不動 ★ 自動加入）。實例沒有伺服器時選單顯示一行灰字提示。選單背景／前景手動設成深色；項目滑過的高亮仍是 WPF 預設樣式（可能偏淺色）。
+- 待實測：空狀態按鈕新增卡片後卡片出現且有進場動畫；▾ 選單位置（`Placement=Top`）與深色是否順眼；選了伺服器後是否真的進得去；新增卡片後空狀態消失。
+- 仍沒做：見上一輪清單（頁面化剩下的彈出視窗、`level.dat` 世界資訊、種子地圖圖形化、CurseForge 單檔搜尋、`servers.dat` 同步等）。
+
+
+## Update 25 — 彈出視窗整合成頁面（1.3.0 UI 更新主軸；未編譯、未實測）
+**十個獨立視窗全部改成嵌在覆蓋頁裡的 UserControl**（類別／檔名 `XxxWindow` → `XxxPage`）：`LogPage`、`SeedMapPage`、`MapsPage`、`AccountPage`、`TerracottaPage`、`RoomPage`、`PublicServerPage`、`ServerPage`（伺服器查找）、`LauncherSettingsPage`、`CurseForgePage`。`ContentWindow` 已刪除，改直接用 `ContentView`。**仍是彈出視窗（刻意保留，小東西）**：`NewInstanceWindow`、`JavaPickerWindow`、`InstancePickerWindow`、各種確認對話框／檔案選擇器／登入流程。
+- **頁面容器**：`MainWindow.ShowPage(title, footer, page, push=false, scroll=false)` 把頁面放進 `StageHost`，回傳 `Task`（覆蓋頁關閉或被別的頁面取代時完成，所以 `OpenAccounts`／`OpenContent`／`OpenCurseForge`／`OpenLauncherSettings` 仍能在關閉後 `RefreshAsync`）。`push=true` 疊在目前頁面上，「← 返回」會回上一頁（伺服器查找 → 公開伺服器用這個）；沒有上一頁時關閉覆蓋頁。`scroll=true` 外包 ScrollViewer（陶瓦、EasyTier、啟動器設定這類內容高的頁面）。`StageBack_Click` 關閉時會把 `StageHost.Content` 設 null，頁面的 `Unloaded` 負責取消事件訂閱／停計時器（原本的 `Closed +=` 全部改成 `Unloaded +=`；LogPage 的計時器、Terracotta／Room 的事件訂閱靠這個）。
+- **深色樣式**：新檔 `PageStyles.xaml`（TextBox／PasswordBox／CheckBox／ListBox／ComboBox／TabControl／ProgressBar／Separator），每個頁面的 `UserControl.Resources` 合併它。原本寫死的 `Gray`／`#FF00AAAA` 改成 `MutedBrush`／`AccentBrush`。可編輯下拉用 `Style="{x:Null}"` 還原預設。
+- **進入點**：`MainViewModel` 的 `OpenServers／OpenLog／OpenCurseForge／OpenMaps／OpenAccounts／OpenLauncherSettings／OpenSeedMap／OpenTerracotta／OpenRoom／OpenContent` 都改走 `ShowPage`（部分由 `void` 改成 `Task`）；下載頁的「地圖」按鈕、「更多」頁的各項也都是頁面。
+- 注意：頁面是「取代」目前的覆蓋頁內容，不會疊在下載頁等上面（只有 `push` 才會疊）。從下載頁按「地圖」→ 返回 → 回到主畫面，不是回下載頁。陶瓦頁的版權標示仍在 `TerracottaPage.xaml`（授權條款要求，不要移除）。
+- 待實測：1) 能不能編譯（所有 `Window.GetWindow(this)` 取代處、`UserControl` 沒有的成員，如有人用到 `Title`／`Close()`）；2) 各頁在深色背景下文字／輸入框是否可讀、DataGrid 之類沒用到；3) 日誌頁會即時更新、返回後不再更新（Unloaded）；4) 陶瓦／房間頁開房、狀態更新、返回再進入；5) 伺服器查找 → 公開伺服器 → 返回；6) 地圖管理的匯入／備份／刪除對話框 owner 正確；7) 帳號頁的登入流程（Microsoft 登入視窗是否仍能正常彈出）；8) 啟動器設定頁高度與捲動。
+
+
+## Update 26 — 小對話框也收進主視窗（未編譯、未實測）
+`NewInstanceWindow`、`InstancePickerWindow`、`JavaPickerWindow` 刪除，改成 `NewInstancePanel`、`InstancePickerPanel`、`JavaPickerPanel`（UserControl），顯示在主視窗最上層的「對話框層」。
+- **`MainWindow.ShowModal(title, build, width)`**：`build` 收到 `close(bool)` 讓內容自己關閉，回傳 `Task<bool>`（true＝確定）。層在 `ModalLayer`（ZIndex 200，半透明遮罩＋置中的 `ModalBox`），**Esc＝取消**。已有對話框開著時再呼叫，舊的會以 false 結束。對話框內容用 `PageStyles.xaml` 的深色樣式。
+- 呼叫端：`AddInstance`（拿 `panel.InstanceName／McVersion／Loader`）、`OpenInstancePicker`、`InstanceSettingsPage.PickJava_Click`（現在是 async）。選實例面板的「新增實例」會先關掉自己再開新增對話框（避免疊兩層）；「刪除實例」仍是原本的指令（含它自己的確認對話框）。
+- 新增實例面板：版本清單取得失敗時改用對話框提示（原本會直接丟例外）。
+- **還是系統視窗的**：`MessageBox` 確認／提示、檔案／資料夾選擇器（`OpenFileDialog`／`OpenFolderDialog`）、Microsoft 登入（瀏覽器／系統流程）。確認對話框之後可做成同一套 `ShowModal` 的「確認面板」（刪除帳號、刪除地圖、更換載入器、刪除實例等，散在很多檔案）。
+- 待實測：新增實例對話框開啟、版本載入、建立後清單更新；Esc 關閉；遮罩下面的頁面不會被點到（遮罩 Rectangle 會吃掉滑鼠事件，預期如此）；選 Java 對話框（620 寬）在實例設置頁內能開、選完寫回；開著對話框時提示條仍在對話框下面（ZIndex 100 < 200）。
+
+
+## Update 27 — 確認／提示改成視窗內面板（未編譯、未實測）
+- 新增 `Dialogs`（`Dialogs.cs`）：`ConfirmAsync(title, message, yes, no)`、`InfoAsync(title, message)`、`ChoiceAsync(title, message, params buttons)`（回傳按鈕索引，Esc＝-1）。內部走 `MainWindow.ShowModal`，第一個按鈕是主要動作（放最右、實色），其餘用 `GhostButton`。主視窗還沒載入時退回系統 `MessageBox`。`App.xaml.cs` 啟動早期的警告仍用 `MessageBox`（那時主視窗還沒出現）。
+- 已換掉的：刪除實例（`MainViewModel`）、刪除帳號（`MainViewModel`、`AccountPage`）、刪除地圖（`MapsPage`）、刪除已安裝內容（`ContentView`）、更換載入器確認（`InstanceSettingsPage`）、有新版本（`MainViewModel`，三個按鈕：下載並更新／稍後／略過這個版本）；提示類（CurseForge 需手動下載、匯入整合包結果、找不到實例、無法開啟資料夾／網頁）用 `_ = Dialogs.InfoAsync(...)`。
+- `InstanceSettingsPage.Save_Click` 改成 `async void`＋`SaveAsync()`；「啟動並加入」`await SaveAsync()` 後才檢查 `_saved`。
+- 限制：同一時間只有一個對話框，**在對話框開著時再開另一個，舊的會以「取消」結束**。已知情況：選實例面板裡按「刪除實例」→ 確認面板出現時選實例面板會被關掉。`NewInstancePanel` 取不到版本清單的提示仍是系統 `MessageBox`（避免把自己關掉）。
+- **Microsoft 登入維持 WebView2 內嵌視窗**（`JELoginHandler.Authenticate()` 預設；文件確認用 WebView2，不是預設瀏覽器）。改用預設瀏覽器需要 `XboxAuthNet.Game.Msal` 加上通過 Mojang 審核的 Azure Client ID（審核表單 `https://aka.ms/mce-reviewappid`）；使用者目前無法申請，先不做。之後若有 Client ID：在啟動器設定加選填欄位，填了走 `new JELoginHandlerBuilder().WithOAuthProvider(new MsalCodeFlowProvider(app))`，沒填維持現狀。注意 MSAL 自己的權杖快取會繞過 `MicrosoftSessions` 的 DPAPI 加密設計，需要另外處理。
+- 待實測：各刪除確認、更新對話框三個按鈕、更換載入器確認後保存；Esc 取消；刪除實例從選實例面板觸發的行為。
+
+
+## Update 28 — 項目詳情頁：點模組 → 列出所有版本 → 選一個安裝（未編譯、未實測）
+（註：Update 17、18 是先前另一個對話做的，程式已在這份專案裡，但文字原本沒進 HANDOFF，已補在 Update 19 前面。）
+- **新增共用控制項 `ProjectDetailView`**（`ProjectDetailView.xaml(.cs)`）：覆蓋在搜尋結果上的詳情頁。內容：標題、簡介、「安裝到：實例（版本 · 載入器）」、版本清單（版本號、正式／測試／早期、支援的 MC 版本、載入器、日期、下載數）、更新內容摘要、必要前置（文字）與可選前置（勾選）、「安裝此版本」。上方兩個勾選：「只顯示符合目前實例的版本」（預設勾，整合包不套用）、「自動安裝必要前置」（預設勾）。事件 `BackRequested`（← 返回結果，由宿主切換顯示）、`Installed`。入口 `ShowAsync(IVersionSource, ContentHit, InstanceConfig? target)`（Update 29 起版本來源是 `IVersionSource`，Modrinth 與 CurseForge 各自實作）。
+- **Core**：`ModrinthService` 改成 `partial`，新方法在 `ModrinthVersions.cs`（不動 `IModrinthService`／`Contracts.cs`）：`GetVersionsAsync(projectId, mc?, loader?)`（`/project/{id}/version`，新→舊）、`GetProjectTitlesAsync(ids)`（`/projects?ids=`，顯示前置名稱）、`InstallVersionAsync(instanceId, kind, projectId, versionId, installRequired, optionalProjects)`。型別 `ContentVersion`、`VersionDep` 定義在同檔。
+  - 安裝順序：必要前置（有勾才裝）→ 使用者勾的可選前置（裝不起來只回警告，不中斷）→ 本體（沿用既有 `DownloadAsync`：白名單＋SHA-1 驗證）→ 用 sha1 查 `POST /version_files`，**刪除同專案的其他版本檔案**（避免同一個模組放兩個版本）；清理失敗只回警告。
+  - 前置模組仍是「該實例可用的最新版」（`InstallProject`），不鎖定前置的版本。整合包：下載該版本的 .mrpack 走 `ImportMrpackAsync` 建立新實例。
+- **接入兩處**：
+  1. `ContentView`（實例設置的模組／光影／資源包分頁、模組與內容頁）：根改成 `Grid`，`MainDock`（原內容）＋ `Detail`；結果清單 `ResultsList` 點選項目 → 開詳情（原本的「安裝」按鈕仍是直接裝最新版，不會觸發選取）。
+  2. 下載頁「內容」分頁：`Detail` 放在 `ContentPanel` 內、`Grid.RowSpan="3"`；結果清單改深色並點選開詳情。**順便補上「安裝到」下拉（`TargetBox`）**：原本「安裝到實例」只在「遊戲」分頁，內容分頁看不到，安裝目標是不是你要的完全看運氣；現在兩個下拉雙向同步（`DownloadStageControl.Detail.cs`）。
+- 限制：（Update 29 已補上 CurseForge 版本選擇，見下。）
+- 待實測：1) 能不能編譯（`ModrinthVersions.cs` 的 JsonElement 用法、`ProjectDetailView` 與 `PageStyles.xaml` 合併）；2) 點項目後詳情頁蓋住搜尋頁、返回後回到原本的搜尋結果與捲動位置；3) 預設勾選「只顯示符合目前實例」時清單正確，取消勾選顯示全部；4) 裝舊版本後，資料夾裡新版本的檔案被刪、舊版保留；5) 可選前置勾選後確實安裝；6) 整合包選特定版本建立實例；7) 下載頁兩個「安裝到」下拉同步。
+- 還沒做：前置模組鎖定版本、詳情頁顯示專案圖示／長說明。
+
+
+## Update 29 — CurseForge 版本選擇（未編譯、未實測）
+- **`IVersionSource`**（`Core/Services/VersionSource.cs`）：`ListVersionsAsync(hit, target, matchTarget)`、`GetProjectTitlesAsync(ids)`、`InstallVersionAsync(target, hit, version, installRequired, optionalProjects)`。`ModrinthService`（`ModrinthVersions.cs` 內加了轉接方法）與 `CurseForgeService`（新檔 `CurseForgeVersions.cs`）都實作它；`ProjectDetailView.ShowAsync` 改收 `IVersionSource`，不再認得具體服務。
+- **CurseForge**：`CurseForgeService` 改成 `partial`。
+  - 列版本：`GET mods/{id}/files`（pageSize 50，最多 3 頁），篩選用 `gameVersion` 與 `modLoaderType`（沿用 `LoaderFilter`：NeoForge 1.20.1 用 Forge、Quilt 另外加 Fabric）；過濾 `isAvailable=false`；`gameVersions` 陣列裡數字開頭的當 MC 版本、`Forge／Fabric／NeoForge／Quilt` 當載入器；`releaseType` 1／2／3＝正式／測試／早期；`ContentVersion.Number`＝displayName、`Name`＝fileName。前置：`relationType` 3＝必要、2＝可選。
+  - 前置模組名稱：`POST mods { modIds }`。
+  - 安裝：必要前置（沿用 `InstallProjectAsync`，裝該實例可用的最新版）→ 勾選的可選前置 → 本體（`downloadUrl` 空就走 `download-url`，作者不開放第三方下載會丟明確訊息請手動下載）→ **清理舊版本：取得該專案所有檔案的檔名，刪掉資料夾裡同名（含 .disabled）而不是剛裝的檔案**。限制：作者改過檔名或使用者手動改名的舊檔找不到（不用 CurseForge 的 fingerprint／murmur2）。
+  - 整合包：`InstallModpackAsync` 新增 `int? fileId`（指定整合包檔案，null＝原本的「挑最新正式版」）。
+- **下載頁**：「來源」選 CurseForge 時，點項目也會開詳情頁（用 `_curseForge`）；要有 CurseForge 金鑰（目前入口見 `CurseForgePage`／啟動器設定頁）。`ContentView`（實例設置分頁）仍只有 Modrinth（它本來就沒有 CurseForge 搜尋）。
+- 待實測：1) CurseForge 詳情頁版本清單與篩選（取消「只顯示符合」能看全部）；2) 沒金鑰時的錯誤訊息；3) 選特定版本安裝、必要前置自動裝；4) 舊版本檔案被清掉；5) 整合包選特定檔案建立實例；6) 沒有 `downloadUrl` 的檔案顯示手動下載提示。
+
+## Update 30 — 配色改成 R、G、B 拉條，每個部分都能調（未編譯、未實測）
+- **範圍**：7 個部分，全部有 R／G／B 三條拉條（0–255）：強調色、視窗背景、面板／卡片底色、外框與分隔線、主要文字、圖標／次要文字、強調色上的文字（主按鈕字色）。對應 Theme.xaml 的 `AccentBrush`、`WindowBg`、`PanelBg`、`LineBrush`、`TextBrush`、`MutedBrush`、`OnAccentBrush`；強調色同時改 `GlowEffect`／`SoftGlowEffect` 的發光顏色。
+- **新檔**：`ThemeEditor.cs`（`ThemeSettings`＝七個色碼的資料與預設值；`ThemeEditor`＝設置頁的編輯控制項：每部分一列「色塊＋名稱＋色碼」，點開展開三條拉條，拖動即時套用）、`MainWindow.Theme.cs`（`LoadTheme`／`ApplyTheme`／`SetBrush`／`SetEffectColor`／延遲存檔；從 `MainWindow.xaml.cs` 搬出並刪掉舊的 `AddColorControl`／`TryParseColor`／`ThemeData`）。
+- **行為**：以前是把資源換成新刷子（只有之後建立的畫面看得到，`StaticResource` 的視窗背景、面板不會變）；現在**就地修改現有刷子的 `Color`**（刷子被凍結才改成換新刷子），所以拖動時整個視窗即時變色。存檔延遲 0.5 秒（拖動中不寫檔）；`theme.json` 欄位改成 `Accent／Window／Panel／Line／Text／Muted／OnAccent`，舊檔的 `Icon` 會讀成 `Muted`，缺的欄位用預設值。設置頁保留「強調色預設」六個色塊（只改強調色）與「恢復預設配色」；色碼輸入框已移除（輸入到一半的色碼崩潰問題不復存在）。
+- **限制**：程式碼裡寫死的顏色不會跟著變（例如輸入框底 `#FF131313`、部分面板 `#FF141414`／`#FF1C1C1C`、`#FF888888` 灰字、`Gray`）；設得太接近（例如文字色＝背景色）會看不見，用「恢復預設配色」還原。Slider 還是 WPF 預設樣式（淺色軌道）。
+- 待實測：拖動時視窗背景／面板／文字／發光即時變色；重開程式配色保留；舊的 theme.json 能讀；`SetBrush` 的刷子沒被凍結（若被凍結，StaticResource 處要重開才會變，需要把 Theme.xaml 的刷子改成 `x:Shared` 或用 DynamicResource）。
+
+
+## Update 31 — 每個部件都能自訂圖片（素材換皮重做；未編譯、未實測）
+- **起因**：原本只有 `ArtButton` 一種模板吃圖，且只有主畫面 6 顆有指定檔名；其他按鈕、面板、輸入框、分頁、進度條都不吃圖，換圖要重開，`Assets/README.txt` 列的 `avatar_frame`／`avatar_default`／`card`／`btn_instance_*` 其實沒接到畫面。
+- **新檔 `Skin.cs`**：
+  - `SkinManager`（單例）：`Slots`（部位清單，key＝檔名不含 .png）、`Get(key)`（快取）、`Import`（任何格式轉 PNG 寫進 `%AppData%\InnovationEasyLauncher\Assets\`）、`Clear`／`ClearAll`、`Options`／`SetOptions`（`skin.json`：`Slice` 九宮格邊距、`Pixel` 像素風）、`ExportPack`／`ImportPack`（zip；匯入只收根目錄、檔名是已知部位的 png 與 skin.json）、`Start()`（`FileSystemWatcher` 監看素材資料夾，400ms 防抖後 `Reload()`）、`Changed` 事件。**不再需要重開才生效。**
+  - `SkinBorder : Border`：可直接取代 `Border`。`Slot`（部位名）、`State`（`_hover`／`_pressed`／`_disabled`，沒對應圖就退回一般圖）、`Fit`（Fill／Cover／Contain）、唯讀 `HasImage`。有圖就畫圖（取代底色與邊框，`OnRender` 不呼叫 base），沒圖就畫原本的 Border 樣子；`Slice>0` 時走九宮格（9 個 `CroppedBitmap`，快取在 `SkinSurface`）。Loaded／Unloaded 訂閱 `Changed`，避免洩漏。
+  - `HideWhenBakedConverter`：按鈕用 `ArtProps.File` 指定「圖上已畫字」的圖且圖存在 → 隱藏程式畫的文字與裝飾；沒指定 File 的通用按鈕（`btn_primary`／`btn_ghost`）文字一律由程式畫在圖上。
+- **部位（23 個，另加按鈕狀態圖）**：背景與標誌（`background`、`logo`、`avatar_frame`）、面板（`panel_main`、`card`、`modal`、`menu`）、按鈕（`btn_primary`、`btn_ghost`、`btn_launch`、`btn_instance_settings`、`btn_instance_pick`、`btn_settings`、`btn_download`、`btn_p2p`、`btn_more`、`btn_music`；全部含 `_hover`／`_pressed`／`_disabled`）、輸入與控制項（`input`、`dropdown`、`tab`、`tab_selected`、`progress_track`、`progress_fill`）。要新增部位：在 `SkinManager.Slots` 加一行，再把對應的 `Border` 換成 `<local:SkinBorder Slot="…">`。
+- **模板改動**：
+  - `Theme.xaml`：`ArtButton`（預設 Slot＝`btn_primary`，所有沒指定樣式的 Button 都吃它）、`GhostButton`（`btn_ghost`，改成 Grid＋`SkinBorder`＋Label，透明度改套在 Root）、`NavButton`（新：右欄按鈕以前完全不吃圖）、`DarkProgress`（`PART_Track`／`PART_Indicator` 改 `SkinBorder`，有填充圖時隱藏光澤動畫）、`DarkComboBox`（`dropdown`、彈出清單 `menu`）、`ContextMenu`（`menu`）、`DarkTabItem`（`tab`，選中時 Slot 換成 `tab_selected`）。新增資源 `HideWhenBaked`。舊的 `Fallback`＋`Image`＋`Asset` 轉換器寫法只剩沒人用的 `CardButton`。
+  - `PageStyles.xaml`：`TextBox`／`PasswordBox` 加了自訂模板（`SkinBorder` Slot＝`input`＋`PART_ContentHost`），順便加鍵盤焦點時邊框變強調色。檔頭新增 `xmlns:local`。
+  - `MainWindow.xaml`：背景（漸層當預設底，`background` 蓋上去，`Fit=Cover`）、主外框（`panel_main`）、頭像外框（`avatar_frame`，疊在頭像上）、快捷卡片（`card`）、對話框 `ModalBox`（`modal`）改 `SkinBorder`；「實例設置」「實例選擇」指定 `btn_instance_settings`／`btn_instance_pick`；`ArtProps.File` 值改成不含 .png（程式兩種都接受）。
+  - `MainWindow.xaml.cs`：標誌改 `ApplyLogo()`，訂閱 `SkinManager.Changed`；啟動時 `SkinManager.Instance.Start()`。
+- **介面 `SkinEditor.cs`**（設置頁兩個入口都有：右欄「設置」與「更多 → 啟動器設定」，後者取代舊的素材文字清單與 `OpenAssets_Click`）：依群組列出所有部位，每列縮圖＋狀態（自訂／exe 旁素材／預設）＋「選圖」「清除」；有圖的部位多一列「九宮格邊距（px）」與「像素風」；按鈕有三種狀態圖的子列；上方「開啟素材資料夾／匯出素材包／匯入素材包／全部清除」。
+- **行為變更**：`avatar_default.png` 從來沒接到畫面，已從清單移除；`Assets/README.txt` 由 `Skin.cs` 的部位清單重新產生。通用按鈕（`btn_primary`）有放圖後，所有按鈕底都變成那張圖，文字仍由程式畫（顏色用 `OnAccentBrush`，圖太亮要自己調）。
+- **限制**：還不能換圖的部件：CheckBox、ScrollBar、Slider、ListBox 項目、Toast 提示條、更新對話框以外的系統視窗（檔案選擇器等）；進度條光澤動畫在有填充圖時關閉；`CardButton` 沒人用、沒改；九宮格切片用 `CroppedBitmap`，縮放後相鄰切片之間可能有細縫（可試「像素風」）；啟動時 `FileSystemWatcher` 失敗會退回重開才生效。
+- 待實測：1) 能不能編譯（`SkinBorder` 的 `OnRender` 覆寫、`DependencyProperty` 宣告、XAML 內 `<local:SkinBorder.Background>` 與 `<Border.Style>` 寫在 `local:SkinBorder` 內是否被接受、`MultiBinding` 的 `RelativeSource` 屬性寫法）；2) 沒放任何圖時外觀與 Update 30 完全一樣；3) 選圖後立刻套用、清除後恢復；手動把檔案丟進資料夾也會更新；4) 九宮格邊距、像素風；5) 按鈕三種狀態圖；`btn_launch` 等「圖上畫字」的按鈕有圖時文字消失；6) 輸入框模板：多行 TextBox（`AcceptsReturn`）的捲動與焦點邊框、密碼框；7) 進度條填充圖寬度變化時的顯示；8) 匯出／匯入素材包；9) 對話框 `modal` 圖與 `Esc`／遮罩行為不受影響；10) 主題配色拉條仍正常（`SkinBorder` 沒圖時走 base，應該同前）。
+
+
+## Update 32 — 陶瓦聯機改成隨安裝包內附（未編譯、未實測）
+- **核對下載檔**：使用者提供 `terracotta-0.4.2-windows-x86_64-pkg.tar.gz`（SHA-256 `07ebe139…45f0`），內容只有最外層兩個檔：`terracotta-0.4.2-windows-x86_64.exe`（9.4 MB，PE x64）與 `VCRUNTIME140.DLL`（97 KB，PE x64）；exe 確實匯入 `VCRUNTIME140.dll`，所以 DLL 必須和 exe 同資料夾（`ExtractTarGz` 與 `FindExe` 已涵蓋）。
+- **內附**：兩個檔原樣放進 `third_party/terracotta/`，另有 `NOTICE.txt`（版權、版本、SHA-256、原始碼網址、上游 AGPL 例外條款全文）。`.gitattributes` 標成 binary。上游 `LICENSE`（AGPL-3.0 全文，34522 位元組，SHA-256 `4df3c306…a3b`，由使用者下載提供、逐位元組複製）已放在 `third_party/terracotta/LICENSE`；上游的例外條款只寫在其 README，不在 LICENSE 內，已收進 `NOTICE.txt`。
+- **授權依據**：上游 README 的例外條款 (1)「以打包方式包含未經修改的二進位且沒有靜態／動態鏈接」與 (2)「透過 HTTP API 互動並在介面明顯處標示版權」，兩者皆符合；我們的專案維持 MIT。只要不改動這兩個檔就不會被 AGPL 涵蓋；日後要換版本，請連 NOTICE 一起更新。
+- **程式**：`IEML.App.csproj` 新增 `<Content Include="..\..\third_party\terracotta\*" …>`，建置與發佈（含 `publish.ps1`、GitHub Actions 的 `dist/*` 壓縮）都會輸出到 `third_party\terracotta\`。`TerracottaService`：`FindExe() ?? InstallBundled() ?? DownloadAsync()`；`InstallBundled()` 只在 x64 使用，把內附檔案複製到 `tools\terracotta\`（不直接在程式資料夾執行，避免自動更新換檔時被鎖住），失敗或 ARM 就退回下載。
+- 待實測：1) 發佈輸出真的有 `third_party\terracotta\*` 2) 第一次開 P2P → 陶瓦不下載就能啟動 3) 刪掉 `tools\terracotta` 再開，會重新複製 4) 刪掉內附資料夾後會退回下載 5) 發行包大小增加約 9.5 MB。
+

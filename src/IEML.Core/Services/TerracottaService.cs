@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Formats.Tar;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -15,7 +16,7 @@ public record TerracottaState(string State, int Index, string? Room, string? Url
 
 /// 陶瓦聯機（Terracotta，© burningtnt，AGPL-3.0-or-later，附 AGPL 例外條款）整合。
 /// 依官方 HTTP API 文件（v0.4.2）：本程式只下載「未修改的官方執行檔」並當成獨立行程啟動，透過本機 HTTP API 互動，
-/// 不連結進本程式；依例外條款，介面上必須明顯標示陶瓦聯機的版權資訊（TerracottaWindow 已標示，請勿移除）。
+/// 不連結進本程式；依例外條款，介面上必須明顯標示陶瓦聯機的版權資訊（TerracottaPage 已標示，請勿移除）。
 /// 好處：房間碼（U/XXXX-XXXX-XXXX-XXXX）與 HMCL、PCL-CE 等互通。未編譯、未實測。
 public sealed class TerracottaService
 {
@@ -52,7 +53,7 @@ public sealed class TerracottaService
     {
         if (IsRunning) return;
         CleanupStale();   // 上一次的陶瓦異常結束（stopped）時，先清掉殘留的連線、輪詢與行程
-        var exe = FindExe() ?? await DownloadAsync(ct);
+        var exe = FindExe() ?? InstallBundled() ?? await DownloadAsync(ct);
 
         Directory.CreateDirectory(Dir);
         if (File.Exists(PortFile)) File.Delete(PortFile);
@@ -216,7 +217,26 @@ public sealed class TerracottaService
             .FirstOrDefault(f => Path.GetFileName(f).StartsWith("terracotta", StringComparison.OrdinalIgnoreCase));
     }
 
-    // 注意：我沒有確認 Release 附件的檔名格式，所以用「檔名含 windows 與架構」去挑，並接受 .exe 或 .zip。
+    /// 安裝包內附的官方陶瓦（未修改，在輸出資料夾的 third_party\terracotta\）：複製到 tools\terracotta 再用，
+    /// 這樣更新啟動器不會動到執行中的檔案，也不用上網。只附 x64 版，ARM 電腦會走下載。
+    string? InstallBundled()
+    {
+        try
+        {
+            if (RuntimeInformation.OSArchitecture != Architecture.X64) return null;
+            var src = Path.Combine(AppContext.BaseDirectory, "third_party", "terracotta");
+            if (!Directory.Exists(src)) return null;
+            Report("安裝內附的陶瓦聯機…");
+            Directory.CreateDirectory(Dir);
+            foreach (var f in Directory.EnumerateFiles(src))
+                File.Copy(f, Path.Combine(Dir, Path.GetFileName(f)), overwrite: true);
+            return FindExe();
+        }
+        catch { return null; }   // 複製失敗就退回網路下載
+    }
+
+    // Release 附件檔名（v0.4.2 實際看過）：terracotta-0.4.2-windows-x86_64-pkg.tar.gz／-windows-arm64-pkg.tar.gz，
+    // 另有 android／linux／macos／freebsd 等其他平台。所以用「檔名含 windows 與架構」去挑，接受 .tar.gz、.zip、.exe。
     // 找不到或格式不認得時會提示使用者手動把官方 Windows 版放進資料夾。
     async Task<string> DownloadAsync(CancellationToken ct)
     {
@@ -232,7 +252,7 @@ public sealed class TerracottaService
             var n = a.GetProperty("name").GetString() ?? "";
             var l = n.ToLowerInvariant();
             if (!l.Contains("windows") || l.Contains("android") || !arch.Any(l.Contains)) continue;
-            if (!(l.EndsWith(".exe") || l.EndsWith(".zip"))) continue;
+            if (!(l.EndsWith(".tar.gz") || l.EndsWith(".zip") || l.EndsWith(".exe"))) continue;
             url = a.GetProperty("browser_download_url").GetString(); name = n;
             if (a.TryGetProperty("digest", out var d) && d.ValueKind == JsonValueKind.String) digest = d.GetString();
             break;
@@ -256,11 +276,36 @@ public sealed class TerracottaService
                     throw new InvalidOperationException("陶瓦聯機下載檔的 SHA256 不符，已中止。");
             }
 
-            if (name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) ZipFile.ExtractToDirectory(tmp, Dir, overwriteFiles: true);
+            if (name.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase)) ExtractTarGz(tmp, Dir);
+            else if (name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) ZipFile.ExtractToDirectory(tmp, Dir, overwriteFiles: true);
             else File.Copy(tmp, Path.Combine(Dir, "terracotta.exe"), overwrite: true);
         }
         finally { try { if (File.Exists(tmp)) File.Delete(tmp); } catch { } }
 
         return FindExe() ?? throw new InvalidOperationException($"下載完成但找不到 terracotta*.exe，請手動放進：{Dir}");
+    }
+
+    /// 解 .tar.gz：只收一般檔案（不建符號連結）、保留相對路徑（exe 旁的 DLL 要在同一層）、擋路徑穿越與過大的檔。
+    static void ExtractTarGz(string archive, string destDir)
+    {
+        var root = Path.GetFullPath(destDir).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        long total = 0;
+        using var fs = File.OpenRead(archive);
+        using var gz = new GZipStream(fs, CompressionMode.Decompress);
+        using var tar = new TarReader(gz);
+        TarEntry? e;
+        while ((e = tar.GetNextEntry()) is not null)
+        {
+            if (e.EntryType is not (TarEntryType.RegularFile or TarEntryType.V7RegularFile) || e.DataStream is null) continue;
+            var rel = e.Name.Replace('/', Path.DirectorySeparatorChar).TrimStart(Path.DirectorySeparatorChar);
+            var full = Path.GetFullPath(Path.Combine(destDir, rel));
+            if (!full.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("陶瓦聯機壓縮檔含不安全的路徑，已中止。");
+            total += e.Length;
+            if (total > 200L * 1024 * 1024) throw new InvalidDataException("陶瓦聯機壓縮檔異常龐大，已中止。");
+            Directory.CreateDirectory(Path.GetDirectoryName(full)!);
+            using var o = File.Create(full);
+            e.DataStream.CopyTo(o);
+        }
     }
 }
