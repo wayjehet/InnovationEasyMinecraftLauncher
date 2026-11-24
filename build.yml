@@ -1,0 +1,96 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '版本標籤（例如 v1.3.2；留空＝只編譯、不發佈）'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      # 版本號來源：推標籤（v1.3.2 / v1.3.2EF）或手動執行時填的標籤。
+      # 數字部分 → 程式版本（自動更新比較用）；去掉開頭 v 的完整標籤 → 畫面上顯示的版本。
+      # 沒有標籤時沿用 IEML.App.csproj 的值。
+      - name: Resolve version
+        shell: pwsh
+        run: |
+          $tag = ''
+          if ('${{ github.ref_type }}' -eq 'tag') { $tag = '${{ github.ref_name }}' }
+          elseif ('${{ github.event.inputs.tag }}' -ne '') { $tag = '${{ github.event.inputs.tag }}' }
+          $tag = $tag.Trim()
+          if ($tag -match '^[vV]?(\d+(\.\d+){1,3})') {
+            $num  = $Matches[1]
+            $full = $tag -replace '^[vV]', ''
+            "RELEASE_TAG=$tag" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+            "VERSION_ARGS=-p:Version=$num -p:InformationalVersion=$full" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+            Write-Host "Release tag: $tag  (Version=$num, InformationalVersion=$full)"
+          } else {
+            "RELEASE_TAG=" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+            "VERSION_ARGS=" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+            Write-Host "No release tag: using csproj version"
+          }
+
+      - name: Publish self-contained package
+        shell: pwsh
+        run: dotnet publish src/IEML.App/IEML.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:IncludeSourceRevisionInInformationalVersion=false $env:VERSION_ARGS.Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries) -o dist
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: InnovationEasyMinecraftLauncher
+          path: dist/
+
+      - name: Create ZIP package
+        if: env.RELEASE_TAG != ''
+        shell: pwsh
+        run: Compress-Archive -Path dist/* -DestinationPath "InnovationEasyMinecraftLauncher-$env:RELEASE_TAG-NET8-SelfContained.zip" -CompressionLevel Optimal
+
+      - name: Checksum and signature (for auto-update)
+        if: env.RELEASE_TAG != ''
+        shell: pwsh
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          $zip = "InnovationEasyMinecraftLauncher-$env:RELEASE_TAG-NET8-SelfContained.zip"
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  $zip" | Out-File -Encoding ascii "$zip.sha256"
+          if ($env:UPDATE_SIGNING_KEY) {
+            $ecdsa = [System.Security.Cryptography.ECDsa]::Create()
+            $ecdsa.ImportFromPem($env:UPDATE_SIGNING_KEY)
+            $bytes = [System.IO.File]::ReadAllBytes($zip)
+            $sig = $ecdsa.SignData($bytes, [System.Security.Cryptography.HashAlgorithmName]::SHA256, [System.Security.Cryptography.DSASignatureFormat]::Rfc3279DerSequence)
+            [System.IO.File]::WriteAllBytes("$zip.sig", $sig)
+          } else { Write-Host "UPDATE_SIGNING_KEY not set; skipping signature." }
+
+      - name: Create GitHub Release
+        if: env.RELEASE_TAG != ''
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = $env:RELEASE_TAG
+          $zip = "InnovationEasyMinecraftLauncher-$tag-NET8-SelfContained.zip"
+          $files = @($zip, "$zip.sha256")
+          if (Test-Path "$zip.sig") { $files += "$zip.sig" }
+          gh release create $tag @files --target "${{ github.sha }}" --title "Innovation Easy Minecraft Launcher $tag" --notes "Windows x64 自包含版本，已包含 .NET 8 Runtime。解壓縮後執行 InnovationEasyMinecraftLauncher.exe。"
