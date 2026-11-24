@@ -182,13 +182,21 @@ public partial class CurseForgeService
     }
 
     async Task InstallProjectAsync(int projectId, ContentKind kind, InstanceConfig cfg, string dir, HashSet<int> seen, int depth,
-        List<string> installed, IProgress<(string Stage, double Percent)>? progress, CancellationToken ct)
+        List<string> installed, IProgress<(string Stage, double Percent)>? progress, CancellationToken ct,
+        IReadOnlyDictionary<string, string>? pinned = null)
     {
         if (!seen.Add(projectId) || depth > 5) return;
         progress?.Report(($"查詢檔案（{projectId}）", 0));
 
-        var file = await PickFileAsync(projectId, cfg, kind, ct)
-                   ?? throw new InvalidOperationException($"找不到適用於 {cfg.McVersion}{(kind == ContentKind.Mod ? " / " + cfg.Loader : "")} 的檔案（專案 {projectId}）");
+        PickedFile? file;
+        if (pinned is not null && pinned.TryGetValue(projectId.ToString(), out var pinFile) && int.TryParse(pinFile, out var pinFileId))
+        {
+            // 使用者指定了這個前置模組的檔案
+            var pd = await Api(HttpMethod.Get, $"mods/{projectId}/files/{pinFileId}", null, ct);
+            file = new PickedFile(pd, pd.RootElement.GetProperty("data"));
+        }
+        else file = await PickFileAsync(projectId, cfg, kind, ct);
+        file ??= throw new InvalidOperationException($"找不到適用於 {cfg.McVersion}{(kind == ContentKind.Mod ? " / " + cfg.Loader : "")} 的檔案（專案 {projectId}）");
         using var keep = file.Doc;
         var f = file.File;
 
@@ -196,7 +204,7 @@ public partial class CurseForgeService
         if (kind == ContentKind.Mod && f.TryGetProperty("dependencies", out var deps) && deps.ValueKind == JsonValueKind.Array)
             foreach (var d in deps.EnumerateArray())
                 if (Int(d, "relationType") == RelationRequired && Int(d, "modId") is int depId)
-                    await InstallProjectAsync(depId, ContentKind.Mod, cfg, dir, seen, depth + 1, installed, progress, ct);
+                    await InstallProjectAsync(depId, ContentKind.Mod, cfg, dir, seen, depth + 1, installed, progress, ct, pinned);
 
         int fileId = f.GetProperty("id").GetInt32();
         var fileName = Path.GetFileName(Str(f, "fileName") ?? $"{fileId}.jar");

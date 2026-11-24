@@ -2,23 +2,22 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:IEML.App"
-             Foreground="{StaticResource TextBrush}"
+             Foreground="{DynamicResource TextBrush}"
              AllowDrop="True" PreviewDragOver="Window_PreviewDragOver" PreviewDrop="Window_PreviewDrop">
   <UserControl.Resources>
     <!-- 只作用在內容頁：深色輸入框／勾選框／清單／分頁（可編輯下拉仍是預設淺色） -->
     <Style TargetType="TextBox">
       <Setter Property="Background" Value="#FF131313"/>
-      <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
-      <Setter Property="BorderBrush" Value="{StaticResource LineBrush}"/>
-      <Setter Property="CaretBrush" Value="{StaticResource AccentBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+      <Setter Property="CaretBrush" Value="{DynamicResource AccentBrush}"/>
       <Setter Property="Padding" Value="8,5"/>
       <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
-    <Style TargetType="CheckBox"><Setter Property="Foreground" Value="{StaticResource TextBrush}"/></Style>
     <Style TargetType="ListBox">
       <Setter Property="Background" Value="Transparent"/>
-      <Setter Property="BorderBrush" Value="{StaticResource LineBrush}"/>
-      <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
     </Style>
     <Style TargetType="ComboBox" BasedOn="{StaticResource DarkComboBox}"/>
     <Style TargetType="TabControl" BasedOn="{StaticResource DarkTabControl}"/>
@@ -26,7 +25,7 @@
   </UserControl.Resources>
   <Grid>
   <DockPanel x:Name="MainDock" Margin="16">
-    <TextBlock x:Name="Info" DockPanel.Dock="Top" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,8"/>
+    <TextBlock x:Name="Info" DockPanel.Dock="Top" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,8"/>
     <TextBlock x:Name="StatusText" DockPanel.Dock="Bottom" Margin="0,8,0,0" TextWrapping="Wrap"/>
     <TabControl x:Name="Tabs" SelectionChanged="Tabs_SelectionChanged">
 
@@ -46,16 +45,16 @@
 
           <!-- 篩選列 -->
           <WrapPanel DockPanel.Dock="Top" Margin="0,8,0,0">
-            <StackPanel Margin="0,0,10,4"><TextBlock Text="排序" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
+            <StackPanel Margin="0,0,10,4"><TextBlock Text="排序" Foreground="{DynamicResource MutedBrush}" FontSize="11"/>
               <ComboBox x:Name="SortBox" Width="100" SelectedIndex="0" DisplayMemberPath="Name" SelectedValuePath="Id"/></StackPanel>
-            <StackPanel Margin="0,0,10,4"><TextBlock Text="分類" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
+            <StackPanel Margin="0,0,10,4"><TextBlock Text="分類" Foreground="{DynamicResource MutedBrush}" FontSize="11"/>
               <ComboBox x:Name="CategoryBox" Width="120" DisplayMemberPath="Name" SelectedValuePath="Id"/></StackPanel>
-            <StackPanel x:Name="LoaderPanel" Margin="0,0,10,4"><TextBlock x:Name="LoaderLabel" Text="載入器" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
+            <StackPanel x:Name="LoaderPanel" Margin="0,0,10,4"><TextBlock x:Name="LoaderLabel" Text="載入器" Foreground="{DynamicResource MutedBrush}" FontSize="11"/>
               <ComboBox x:Name="LoaderBox" Width="100" DisplayMemberPath="Name" SelectedValuePath="Id"/></StackPanel>
-            <StackPanel x:Name="EnvPanel" Margin="0,0,10,4"><TextBlock Text="執行端" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
+            <StackPanel x:Name="EnvPanel" Margin="0,0,10,4"><TextBlock Text="執行端" Foreground="{DynamicResource MutedBrush}" FontSize="11"/>
               <ComboBox x:Name="EnvBox" Width="100" SelectedIndex="0" DisplayMemberPath="Name" SelectedValuePath="Id"/></StackPanel>
-            <StackPanel Margin="0,0,10,4"><TextBlock Text="MC 版本（空白＝全部）" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
-              <ComboBox x:Name="McBox" Width="150" IsEditable="True" Style="{x:Null}"/></StackPanel>
+            <StackPanel Margin="0,0,10,4"><TextBlock Text="MC 版本（空白＝全部）" Foreground="{DynamicResource MutedBrush}" FontSize="11"/>
+              <ComboBox x:Name="McBox" Width="150" IsEditable="True" Style="{StaticResource DarkEditableComboBox}"/></StackPanel>
             <Button Content="重設篩選" Click="ResetFilters_Click" Padding="10,2" VerticalAlignment="Bottom" Margin="0,0,0,4"/>
           </WrapPanel>
 
@@ -69,10 +68,10 @@
                   <Image DockPanel.Dock="Left" Source="{Binding IconUrl}" Width="48" Height="48" Margin="0,0,10,0" VerticalAlignment="Top"/>
                   <StackPanel>
                     <TextBlock Text="{Binding Title}" FontWeight="Bold"/>
-                    <TextBlock Text="{Binding Description}" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding Description}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"/>
                     <StackPanel Orientation="Horizontal">
-                      <TextBlock Text="{Binding DownloadsText}" Foreground="{StaticResource AccentBrush}" FontSize="11"/>
-                      <TextBlock Text="{Binding AuthorText}" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="10,0,0,0"/>
+                      <TextBlock Text="{Binding DownloadsText}" Foreground="{DynamicResource AccentBrush}" FontSize="11"/>
+                      <TextBlock Text="{Binding AuthorText}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="10,0,0,0"/>
                     </StackPanel>
                   </StackPanel>
                 </DockPanel>
@@ -97,7 +96,7 @@
               <Button x:Name="UpdateAllBtn" Content="全部更新" Click="UpdateAll_Click" Padding="10,3" IsEnabled="False"/>
             </StackPanel>
           </DockPanel>
-          <TextBlock DockPanel.Dock="Bottom" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap"
+          <TextBlock DockPanel.Dock="Bottom" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap"
                      Text="也可以直接把檔案拖進這個視窗：資源包／光影的 .zip、模組的 .jar（第三方網站抓不到的包可以自己下載後拖進來）"/>
           <ListBox ItemsSource="{Binding Installed}" Margin="0,8,0,0" HorizontalContentAlignment="Stretch"
                    ScrollViewer.HorizontalScrollBarVisibility="Disabled">
@@ -105,8 +104,8 @@
               <DataTemplate>
                 <DockPanel Margin="0,3">
                   <Button DockPanel.Dock="Right" Content="刪除" Click="DeleteInstalled_Click" Padding="8,2" Margin="8,0,0,0"/>
-                  <TextBlock DockPanel.Dock="Right" Text="{Binding Item.SizeText}" Foreground="{StaticResource MutedBrush}" Margin="8,0,0,0" VerticalAlignment="Center"/>
-                  <TextBlock DockPanel.Dock="Right" Text="{Binding UpdateText}" Foreground="{StaticResource AccentBrush}" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                  <TextBlock DockPanel.Dock="Right" Text="{Binding Item.SizeText}" Foreground="{DynamicResource MutedBrush}" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                  <TextBlock DockPanel.Dock="Right" Text="{Binding UpdateText}" Foreground="{DynamicResource AccentBrush}" Margin="8,0,0,0" VerticalAlignment="Center"/>
                   <CheckBox IsChecked="{Binding Item.Enabled, Mode=OneWay}" Click="ToggleInstalled_Click" VerticalAlignment="Center">
                     <TextBlock Text="{Binding Item.DisplayName}" TextTrimming="CharacterEllipsis"/>
                   </CheckBox>

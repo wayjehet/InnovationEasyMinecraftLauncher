@@ -2,12 +2,12 @@
 
 **繁體中文** | [English](README.en.md)
 
-[![版本](https://img.shields.io/github/v/release/wayjehet/InnovationEasyMinecraftLauncher?label=%E7%89%88%E6%9C%AC&color=00FFFF)](https://github.com/wayjehet/InnovationEasyMinecraftLauncher/releases)
+[![版本](https://img.shields.io/github/v/release/wayjehet/InnovationEasyMinecraftLauncher?label=%E7%89%88%E6%9C%AC&color=00FFFF&cacheSeconds=300)](https://github.com/wayjehet/InnovationEasyMinecraftLauncher/releases)
 [![建置](https://img.shields.io/github/actions/workflow/status/wayjehet/InnovationEasyMinecraftLauncher/build.yml?label=%E5%BB%BA%E7%BD%AE)](https://github.com/wayjehet/InnovationEasyMinecraftLauncher/actions/workflows/build.yml)
 [![授權](https://img.shields.io/badge/%E6%8E%88%E6%AC%8A-MIT-blue)](LICENSE)
 ![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
 ![平台](https://img.shields.io/badge/%E5%B9%B3%E5%8F%B0-Windows-0078D6)
-![狀態](https://img.shields.io/badge/%E7%8B%80%E6%85%8B-Beta-orange)
+![狀態](https://img.shields.io/badge/%E7%8B%80%E6%85%8B-%E6%AD%A3%E5%BC%8F%E7%89%88-brightgreen)
 ![AI 協同製作](https://img.shields.io/badge/AI-%E5%8D%94%E5%90%8C%E8%A3%BD%E4%BD%9C-8A2BE2)
 
 一個以 **.NET 8 + WPF** 撰寫的 Minecraft Java 版啟動器，以 Windows 為主要目標平台。
@@ -112,7 +112,7 @@
 
 各頁面內容：
 
-- **設置**：帳號管理、CurseForge API 金鑰、主題配色、素材資料夾與素材清單、重設卡片位置、版本資訊與 Beta 提示、檢查更新／自動更新開關、GitHub 專案頁。
+- **設置**：帳號管理、CurseForge API 金鑰、主題配色、素材資料夾與素材清單、重設卡片位置、版本資訊、檢查更新／自動更新開關、GitHub 專案頁。
 - **下載**：分頁「遊戲」（版本清單＋建立實例）、「內容」（Modrinth／CurseForge 搜尋、選版本與安裝）、「地圖」；頁首有「匯入整合包」按鈕。已安裝的模組／光影／資源包到「實例設置」管理。
 - **P2P**：陶瓦聯機、EasyTier 房間。
 - **更多**：伺服器查找、遊戲日誌、種子地圖、地圖管理、帳號管理。
@@ -153,9 +153,9 @@ dotnet run --project src/IEML.App
 
 ### 發佈新版本
 
-1. 修改 `src/IEML.App/IEML.App.csproj` 的 `<Version>`（數字）與 `<InformationalVersion>`（顯示名稱）。
-2. 推一個和版本一致的標籤，例如 `v1.2.2`。
-3. GitHub Actions 會建置並發佈 Release。
+1. 推一個版本標籤，例如 `v1.3.1`（或在 Actions 手動執行「Build and Release」並填入版本標籤）。
+2. GitHub Actions 會用**標籤**當版本號建置（數字部分＝程式版本，完整標籤去掉開頭的 `v`＝畫面上顯示的版本），並發佈 Release；不需要事先改 `IEML.App.csproj`。
+3. `IEML.App.csproj` 的 `<Version>`／`<InformationalVersion>` 只影響本機自己編譯的版本，記得偶爾跟上最新發佈的版本號。
 
 > 更新程式只看版本號開頭的數字：`1.2.1EF` 與 `1.2.1EG` 會被當成同一版，**不會互相提示更新**。要讓舊版收到更新，數字一定要變大。
 

@@ -134,7 +134,7 @@ public partial class InstanceSettingsPage : UserControl
         // 換載入器種類：已安裝的模組通常不能通用，先提醒
         if (newLoader != Config.Loader && Config.Loader != LoaderType.Vanilla)
         {
-            var mods = System.IO.Path.Combine(AppPaths.Instances, Config.Id.ToString("N"), "mods");
+            var mods = System.IO.Path.Combine(InstanceRoots.DirFor(Config.Id), "mods");
             if (System.IO.Directory.Exists(mods) && System.IO.Directory.EnumerateFiles(mods, "*.jar").Any() &&
                 !await Dialogs.ConfirmAsync("更換載入器", $"從 {Config.Loader} 換成 {newLoader} 後，已安裝的模組多半無法使用，要繼續嗎？\n（模組檔案不會被刪除）", "繼續")) return;
         }
@@ -231,6 +231,7 @@ public partial class InstanceSettingsPage : UserControl
         if (host.Content is not null) return;
         var view = new ContentView(Config, new ModrinthService(_instances));
         view.LockKind(kind);
+        view.ManageOnly();      // 實例設置只管理已安裝的內容；要下載請到下載頁
         host.Content = view;
     }
 }

@@ -1,5 +1,8 @@
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media.Imaging;
 using IEML.Core.Contracts;
 using IEML.Core.Models;
 using IEML.Core.Services;
@@ -9,11 +12,29 @@ namespace IEML.App;
 /// 下載頁與實例設置頁的內容分頁共用；覆蓋在搜尋結果上，「← 返回結果」觸發 BackRequested，由宿主負責切換顯示。
 public partial class ProjectDetailView : UserControl
 {
-    sealed class OptionalDep
+    /// 一個前置模組的一列：名稱＋版本下拉（預設「自動」＝自動挑最新相容版；展開時才載入該專案的版本清單）。
+    sealed class DepChoice
+    {
+        public string? Id { get; init; }          // null＝自動
+        public string Text { get; init; } = "";
+        public override string ToString() => Text;
+    }
+
+    sealed class DepRow : INotifyPropertyChanged
     {
         public string ProjectId { get; init; } = "";
-        public string Label { get; init; } = "";
-        public bool Selected { get; set; }
+        public string Title { get; init; } = "";
+        public bool Required { get; init; }
+        public bool VersionsLoaded { get; set; }
+        public static readonly DepChoice Auto = new() { Id = null, Text = "自動（最新相容版）" };
+        public ObservableCollection<DepChoice> Choices { get; } = new() { Auto };
+        public DepChoice Choice { get; set; } = Auto;
+        bool _sel;
+        public bool Selected { get => _sel; set { _sel = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Selected))); } }
+        public string Label => (Required ? "必要前置：" : "可選前置：") + Title;
+        public Visibility RequiredVisibility => Required ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility OptionalVisibility => Required ? Visibility.Collapsed : Visibility.Visible;
+        public event PropertyChangedEventHandler? PropertyChanged;
     }
 
     IVersionSource? _src;
@@ -35,6 +56,8 @@ public partial class ProjectDetailView : UserControl
         var isPack = hit.Kind == ContentKind.Modpack;
         TitleText.Text = hit.Title;
         DescText.Text = hit.Description;
+        SetIcon(hit.IconUrl);
+        LongDescText.Text = ""; LongDescScroll.Visibility = Visibility.Collapsed; DescToggle.Visibility = Visibility.Collapsed; DescToggle.Content = "▸ 專案說明";
         MatchOnly.Visibility = AutoDeps.Visibility = isPack ? Visibility.Collapsed : Visibility.Visible;
         TargetText.Text = isPack ? "安裝後會建立一個新的實例"
             : target is null ? "尚未選擇實例，請回上一頁選一個再安裝"
@@ -43,7 +66,41 @@ public partial class ProjectDetailView : UserControl
         ClearDeps();
         InstallButton.IsEnabled = false;
         StatusText.Text = "載入版本中…";
+        _ = LoadLongDescAsync(hit);
         await LoadVersionsAsync();
+    }
+
+    void SetIcon(string? url)
+    {
+        IconImage.Source = null; IconBorder.Visibility = Visibility.Collapsed;
+        if (string.IsNullOrWhiteSpace(url) || !Uri.TryCreate(url, UriKind.Absolute, out var u) || u.Scheme != Uri.UriSchemeHttps) return;
+        try
+        {
+            var bi = new BitmapImage();
+            bi.BeginInit(); bi.UriSource = u; bi.DecodePixelWidth = 96; bi.CacheOption = BitmapCacheOption.OnLoad; bi.EndInit();
+            IconImage.Source = bi; IconBorder.Visibility = Visibility.Visible;
+        }
+        catch { /* 圖示載入失敗就不顯示，不影響其他功能 */ }
+    }
+
+    async Task LoadLongDescAsync(ContentHit hit)
+    {
+        if (_src is null) return;
+        try
+        {
+            var text = await _src.GetLongDescriptionAsync(hit);
+            if (!ReferenceEquals(_hit, hit) || string.IsNullOrWhiteSpace(text)) return;   // 期間已換別的專案、或沒有說明
+            LongDescText.Text = text;
+            DescToggle.Visibility = Visibility.Visible;
+        }
+        catch { /* 取不到長說明不影響安裝 */ }
+    }
+
+    void DescToggle_Click(object sender, RoutedEventArgs e)
+    {
+        bool show = LongDescScroll.Visibility != Visibility.Visible;
+        LongDescScroll.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        DescToggle.Content = show ? "▾ 收起說明" : "▸ 專案說明";
     }
 
     async Task LoadVersionsAsync()
@@ -74,7 +131,7 @@ public partial class ProjectDetailView : UserControl
     {
         RequiredText.Text = "";
         ChangelogText.Text = "";
-        OptionalList.ItemsSource = null;
+        DepList.ItemsSource = null;
     }
 
     string DepTitle(string id) => _depTitles.TryGetValue(id, out var t) && t != "" ? t : id;
@@ -96,8 +153,31 @@ public partial class ProjectDetailView : UserControl
             catch { /* 查不到名稱就顯示 id，不影響安裝 */ }
         }
         if (VersionList.SelectedItem != v) return; // 等待期間使用者又選了別的版本
-        RequiredText.Text = req.Count == 0 ? "必要前置：無" : "必要前置：" + string.Join("、", req.Select(DepTitle));
-        OptionalList.ItemsSource = opt.Select(id => new OptionalDep { ProjectId = id, Label = "可選前置：" + DepTitle(id) }).ToList();
+        RequiredText.Text = req.Count == 0 && opt.Count == 0 ? "前置模組：無" : "前置模組（可以自己指定版本；不選就自動挑最新的相容版）：";
+        DepList.ItemsSource = req.Select(id => new DepRow { ProjectId = id, Title = DepTitle(id), Required = true, Selected = true })
+            .Concat(opt.Select(id => new DepRow { ProjectId = id, Title = DepTitle(id), Required = false }))
+            .ToList();
+    }
+
+    // 展開某個前置模組的版本下拉時才去查它的版本（避免一開頁就對每個前置發一次請求）
+    async void DepCombo_DropDownOpened(object? sender, EventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: DepRow row } || row.VersionsLoaded || _src is null) return;
+        row.VersionsLoaded = true;
+        try
+        {
+            var list = await _src.ListVersionsAsync(new ContentHit(row.ProjectId, row.Title, "", null, ContentKind.Mod), _target, _target is not null);
+            foreach (var v in list)
+                row.Choices.Add(new DepChoice { Id = v.Id, Text = $"{v.Number}（{v.TypeText} · {v.Date:yyyy-MM-dd}）" });
+            if (list.Count == 0) row.Choices.Add(new DepChoice { Id = null, Text = "（沒有符合這個實例的版本）" });
+        }
+        catch (Exception ex) { row.VersionsLoaded = false; StatusText.Text = $"載入「{row.Title}」的版本失敗：{ex.Message}"; }
+    }
+
+    // 為可選前置指定了版本 → 自動勾選它（否則指定了也不會安裝）
+    void DepCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: DepRow row } && !row.Required && row.Choice?.Id is not null) row.Selected = true;
     }
 
     async void Install_Click(object sender, RoutedEventArgs e)
@@ -108,9 +188,10 @@ public partial class ProjectDetailView : UserControl
         StatusText.Text = $"安裝中：{hit.Title} {v.Number}…";
         try
         {
-            var optional = (OptionalList.ItemsSource as IEnumerable<OptionalDep>)?.Where(o => o.Selected).Select(o => o.ProjectId).ToList()
-                           ?? new List<string>();
-            var warnings = await _src.InstallVersionAsync(_target, hit, v, AutoDeps.IsChecked == true, optional);
+            var rows = (DepList.ItemsSource as IEnumerable<DepRow>)?.ToList() ?? new List<DepRow>();
+            var optional = rows.Where(r => !r.Required && r.Selected).Select(r => r.ProjectId).ToList();
+            var pinned = rows.Where(r => r.Choice?.Id is not null).ToDictionary(r => r.ProjectId, r => r.Choice!.Id!);
+            var warnings = await _src.InstallVersionAsync(_target, hit, v, AutoDeps.IsChecked == true, optional, default, pinned);
             StatusText.Text = (hit.Kind == ContentKind.Modpack ? $"已建立整合包實例：{hit.Title}" : $"已安裝：{hit.Title} {v.Number}")
                               + (warnings.Count > 0 ? "\n" + string.Join("\n", warnings) : "");
             Installed?.Invoke();

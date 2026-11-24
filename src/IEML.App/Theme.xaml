@@ -18,7 +18,7 @@
 
   <!-- 主按鈕：青底黑字粗體、圓角 5，滑過發光並上浮（同網頁的 button） -->
   <Style x:Key="ArtButton" TargetType="Button">
-    <Setter Property="Foreground" Value="{StaticResource OnAccentBrush}"/>
+    <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
     <Setter Property="FontWeight" Value="Bold"/>
     <Setter Property="Cursor" Value="Hand"/>
     <Setter Property="Template">
@@ -26,7 +26,8 @@
         <ControlTemplate TargetType="Button">
           <Grid x:Name="Root" Background="Transparent" RenderTransformOrigin="0.5,0.5">
             <Grid.RenderTransform><TransformGroup><ScaleTransform x:Name="Sc" ScaleX="1" ScaleY="1"/><TranslateTransform x:Name="Tt" Y="0"/></TransformGroup></Grid.RenderTransform>
-            <local:SkinBorder x:Name="Art" Background="{StaticResource AccentBrush}" CornerRadius="5"
+            <Border x:Name="GlowLayer" Background="{DynamicResource AccentBrush}" CornerRadius="5" Opacity="0" IsHitTestVisible="False" Effect="{DynamicResource GlowEffect}"/>
+            <local:SkinBorder x:Name="Art" Background="{DynamicResource AccentBrush}" CornerRadius="5"
                               Slot="{Binding (local:ArtProps.File), RelativeSource={RelativeSource TemplatedParent}, TargetNullValue=btn_primary, FallbackValue=btn_primary}"/>
             <ContentPresenter x:Name="Label" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="12,6">
               <ContentPresenter.Visibility>
@@ -40,13 +41,14 @@
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
               <Setter TargetName="Art" Property="State" Value="_hover"/>
-              <Setter TargetName="Root" Property="Effect" Value="{StaticResource GlowEffect}"/>
               <Trigger.EnterActions><BeginStoryboard><Storyboard>
+                <DoubleAnimation Storyboard.TargetName="GlowLayer" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.16"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation>
                 <DoubleAnimation Storyboard.TargetName="Tt" Storyboard.TargetProperty="Y" To="-2" Duration="0:0:0.12">
                   <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
                 </DoubleAnimation>
               </Storyboard></BeginStoryboard></Trigger.EnterActions>
               <Trigger.ExitActions><BeginStoryboard><Storyboard>
+                <DoubleAnimation Storyboard.TargetName="GlowLayer" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.24"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation>
                 <DoubleAnimation Storyboard.TargetName="Tt" Storyboard.TargetProperty="Y" To="0" Duration="0:0:0.18">
                   <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
                 </DoubleAnimation>
@@ -64,6 +66,7 @@
                 <DoubleAnimation Storyboard.TargetName="Sc" Storyboard.TargetProperty="ScaleY" To="1" Duration="0:0:0.14"/>
               </Storyboard></BeginStoryboard></Trigger.ExitActions>
             </Trigger>
+            <DataTrigger Binding="{Binding HasImage, ElementName=Art}" Value="True"><Setter TargetName="GlowLayer" Property="Visibility" Value="Collapsed"/></DataTrigger>
             <Trigger Property="IsEnabled" Value="False">
               <Setter TargetName="Art" Property="State" Value="_disabled"/>
               <Setter TargetName="Root" Property="Opacity" Value="0.4"/>
@@ -81,17 +84,20 @@
 
   <!-- 卡片按鈕：#1C1C1C 底、#333 邊框，滑過邊框變青色並微發光（同網頁的 .card）；內容永遠顯示 -->
   <Style x:Key="CardButton" TargetType="Button">
-    <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
     <Setter Property="Cursor" Value="Hand"/>
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="Button">
           <Grid x:Name="Root" Background="Transparent" RenderTransformOrigin="0.5,0.5">
             <Grid.RenderTransform><TransformGroup><ScaleTransform x:Name="Sc" ScaleX="1" ScaleY="1"/><TranslateTransform x:Name="Tt" Y="0"/></TransformGroup></Grid.RenderTransform>
-            <Border x:Name="Fallback" Visibility="Collapsed" Background="{StaticResource PanelBg}"
-                    BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="10"/>
+            <Border x:Name="Fallback" Visibility="Collapsed" Background="{DynamicResource PanelBg}"
+                    BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="10"/>
             <Image x:Name="Art" Stretch="Fill"
                    Source="{Binding (local:ArtProps.File), RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource Asset}}"/>
+            <!-- 滑過的發光：獨立圖層（細邊框＋柔光），用 Opacity 淡入淡出，不再瞬間套用 Effect -->
+            <Border x:Name="GlowRing" CornerRadius="10" BorderThickness="1" BorderBrush="{DynamicResource AccentBrush}"
+                    Opacity="0" IsHitTestVisible="False" Effect="{DynamicResource SoftGlowEffect}"/>
             <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
           </Grid>
           <ControlTemplate.Triggers>
@@ -99,14 +105,15 @@
               <Setter TargetName="Fallback" Property="Visibility" Value="Visible"/>
             </DataTrigger>
             <Trigger Property="IsMouseOver" Value="True">
-              <Setter TargetName="Fallback" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
-              <Setter TargetName="Root" Property="Effect" Value="{StaticResource SoftGlowEffect}"/>
+              <Setter TargetName="Fallback" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
               <Trigger.EnterActions><BeginStoryboard><Storyboard>
+                <DoubleAnimation Storyboard.TargetName="GlowRing" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.16"/>
                 <DoubleAnimation Storyboard.TargetName="Tt" Storyboard.TargetProperty="Y" To="-2" Duration="0:0:0.12">
                   <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
                 </DoubleAnimation>
               </Storyboard></BeginStoryboard></Trigger.EnterActions>
               <Trigger.ExitActions><BeginStoryboard><Storyboard>
+                <DoubleAnimation Storyboard.TargetName="GlowRing" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.24"/>
                 <DoubleAnimation Storyboard.TargetName="Tt" Storyboard.TargetProperty="Y" To="0" Duration="0:0:0.18">
                   <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
                 </DoubleAnimation>
@@ -121,7 +128,7 @@
   </Style>
   <!-- 右欄選單鈕：純文字（同草圖），滑過變青色並有左側亮條 -->
   <Style x:Key="NavButton" TargetType="Button">
-    <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
     <Setter Property="FontSize" Value="12"/>
     <Setter Property="FontWeight" Value="Normal"/>
     <Setter Property="Cursor" Value="Hand"/>
@@ -131,7 +138,7 @@
           <Grid x:Name="Root" Background="Transparent">
             <local:SkinBorder x:Name="Art" Slot="{Binding (local:ArtProps.File), RelativeSource={RelativeSource TemplatedParent}}"/>
             <Border x:Name="Bar" HorizontalAlignment="Left" Width="3" Margin="0,8" CornerRadius="2"
-                    Background="{StaticResource AccentBrush}" Opacity="0">
+                    Background="{DynamicResource AccentBrush}" Opacity="0">
               <Border.Visibility>
                 <MultiBinding Converter="{StaticResource HideWhenBaked}">
           <Binding Path="(local:ArtProps.File)" RelativeSource="{RelativeSource TemplatedParent}"/>
@@ -152,7 +159,7 @@
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
               <Setter TargetName="Art" Property="State" Value="_hover"/>
-              <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+              <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
               <Trigger.EnterActions><BeginStoryboard><Storyboard>
                 <DoubleAnimation Storyboard.TargetName="Bar" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.15"/>
                 <DoubleAnimation Storyboard.TargetName="NavSc" Storyboard.TargetProperty="ScaleX" To="1.1" Duration="0:0:0.15"/>
@@ -189,14 +196,15 @@
   <!-- ===== 主畫面（照預覽圖）用的樣式 ===== -->
   <!-- 描邊按鈕：深底、#333 邊框，滑過邊框變青色（預覽圖的「實例設置」「設置」） -->
   <Style x:Key="GhostButton" TargetType="Button">
-    <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
     <Setter Property="Cursor" Value="Hand"/>
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="Button">
           <Grid x:Name="Root" Background="Transparent">
-            <local:SkinBorder x:Name="Bd" Background="#FF141414" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="5"
+            <local:SkinBorder x:Name="Bd" Background="#FF141414" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="5"
                               Slot="{Binding (local:ArtProps.File), RelativeSource={RelativeSource TemplatedParent}, TargetNullValue=btn_ghost, FallbackValue=btn_ghost}"/>
+            <Border x:Name="Ring" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" CornerRadius="5" Opacity="0" IsHitTestVisible="False"/>
             <ContentPresenter x:Name="Label" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="10,6">
               <ContentPresenter.Visibility>
                 <MultiBinding Converter="{StaticResource HideWhenBaked}">
@@ -207,10 +215,7 @@
             </ContentPresenter>
           </Grid>
           <ControlTemplate.Triggers>
-            <Trigger Property="IsMouseOver" Value="True">
-              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
-              <Setter TargetName="Bd" Property="State" Value="_hover"/>
-            </Trigger>
+<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="State" Value="_hover"/><Trigger.EnterActions><BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="Ring" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.14"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation></Storyboard></BeginStoryboard></Trigger.EnterActions><Trigger.ExitActions><BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="Ring" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.2"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation></Storyboard></BeginStoryboard></Trigger.ExitActions></Trigger>
             <Trigger Property="IsPressed" Value="True">
               <Setter TargetName="Bd" Property="State" Value="_pressed"/>
               <Setter TargetName="Root" Property="Opacity" Value="0.8"/>
@@ -248,7 +253,7 @@
         <ControlTemplate TargetType="ProgressBar">
           <Grid>
             <local:SkinBorder x:Name="PART_Track" Slot="progress_track" Background="#FF2A2A2A" CornerRadius="3"/>
-            <local:SkinBorder x:Name="PART_Indicator" Slot="progress_fill" HorizontalAlignment="Left" Background="{StaticResource AccentBrush}" CornerRadius="3" ClipToBounds="True">
+            <local:SkinBorder x:Name="PART_Indicator" Slot="progress_fill" HorizontalAlignment="Left" Background="{DynamicResource AccentBrush}" CornerRadius="3" ClipToBounds="True">
               <Border x:Name="Shimmer" Width="70" HorizontalAlignment="Left" IsHitTestVisible="False">
                 <Border.Background>
                   <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
@@ -276,24 +281,27 @@
 
   <!-- 深色下拉選單（只給「使用帳號」這種唯讀下拉用；可編輯的下拉不要套） -->
   <Style x:Key="DarkComboBoxItem" TargetType="ComboBoxItem">
-    <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
     <Setter Property="Padding" Value="10,6"/>
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="ComboBoxItem">
-          <Border x:Name="Bd" Background="Transparent" Padding="{TemplateBinding Padding}">
-            <ContentPresenter/>
-          </Border>
+          <Grid>
+            <Border x:Name="Hl" Background="{DynamicResource TextBrush}" CornerRadius="4" Opacity="0" IsHitTestVisible="False"/>
+            <Border x:Name="Bd" Background="Transparent" Padding="{TemplateBinding Padding}">
+              <ContentPresenter/>
+            </Border>
+          </Grid>
           <ControlTemplate.Triggers>
-            <Trigger Property="IsHighlighted" Value="True"><Setter TargetName="Bd" Property="Background" Value="#FF2A2A2A"/></Trigger>
-            <Trigger Property="IsSelected" Value="True"><Setter Property="Foreground" Value="{StaticResource AccentBrush}"/></Trigger>
+            <Trigger Property="IsHighlighted" Value="True"><Trigger.EnterActions><BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="Hl" Storyboard.TargetProperty="Opacity" To="0.12" Duration="0:0:0.1"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation></Storyboard></BeginStoryboard></Trigger.EnterActions><Trigger.ExitActions><BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="Hl" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.16"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation></Storyboard></BeginStoryboard></Trigger.ExitActions></Trigger>
+            <Trigger Property="IsSelected" Value="True"><Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/></Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
     </Setter>
   </Style>
   <Style x:Key="DarkComboBox" TargetType="ComboBox">
-    <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
     <Setter Property="ItemContainerStyle" Value="{StaticResource DarkComboBoxItem}"/>
     <Setter Property="Template">
       <Setter.Value>
@@ -303,23 +311,69 @@
                           IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
               <ToggleButton.Template>
                 <ControlTemplate TargetType="ToggleButton">
-                  <local:SkinBorder x:Name="Bd" Slot="dropdown" Background="#FF131313" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="5"/>
+                  <Grid>
+                    <local:SkinBorder x:Name="Bd" Slot="dropdown" Background="#FF131313" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="5"/>
+                    <Border x:Name="Ring" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" CornerRadius="5" Opacity="0" IsHitTestVisible="False"/>
+                  </Grid>
                   <ControlTemplate.Triggers>
-                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}"/></Trigger>
+                    <Trigger Property="IsMouseOver" Value="True"><Trigger.EnterActions><BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="Ring" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.14"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation></Storyboard></BeginStoryboard></Trigger.EnterActions><Trigger.ExitActions><BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="Ring" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.2"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation></Storyboard></BeginStoryboard></Trigger.ExitActions></Trigger>
                   </ControlTemplate.Triggers>
                 </ControlTemplate>
               </ToggleButton.Template>
             </ToggleButton>
             <ContentPresenter IsHitTestVisible="False" Margin="10,7,30,7" VerticalAlignment="Center" HorizontalAlignment="Left"
                               Content="{TemplateBinding SelectionBoxItem}"
-                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"/>
-            <Path IsHitTestVisible="False" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0"
-                  Data="M0,0 L4,4 L8,0" Stroke="{StaticResource MutedBrush}" StrokeThickness="1.6"/>
-            <Popup IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" AllowsTransparency="True" Focusable="False">
+                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                              ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                              ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"/>
+            <Path x:Name="Arrow" IsHitTestVisible="False" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0" RenderTransformOrigin="0.5,0.5"
+                  Data="M0,0 L4,4 L8,0" Stroke="{DynamicResource MutedBrush}" StrokeThickness="1.6">
+              <Path.RenderTransform><RotateTransform x:Name="ArrowRot" Angle="0"/></Path.RenderTransform>
+            </Path>
+            <Popup IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" AllowsTransparency="True" Focusable="False" PopupAnimation="Fade">
               <local:SkinBorder Slot="menu" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}" MaxHeight="{TemplateBinding MaxDropDownHeight}"
-                      Background="{StaticResource PanelBg}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" Padding="3" Margin="0,2,0,0">
+                      Background="{DynamicResource PanelBg}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" Padding="3" Margin="0,2,0,0">
                 <ScrollViewer><StackPanel IsItemsHost="True"/></ScrollViewer>
               </local:SkinBorder>
+            </Popup>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsDropDownOpen" Value="True"><Trigger.EnterActions><BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="ArrowRot" Storyboard.TargetProperty="Angle" To="180" Duration="0:0:0.18"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation></Storyboard></BeginStoryboard></Trigger.EnterActions><Trigger.ExitActions><BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="ArrowRot" Storyboard.TargetProperty="Angle" To="0" Duration="0:0:0.18"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation></Storyboard></BeginStoryboard></Trigger.ExitActions></Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+
+  <!-- 深色「可輸入」下拉（MC 版本用）：左邊輸入框、右邊箭頭，點箭頭或輸入框旁展開清單 -->
+  <Style x:Key="DarkEditableComboBox" TargetType="ComboBox">
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+    <Setter Property="ItemContainerStyle" Value="{StaticResource DarkComboBoxItem}"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ComboBox">
+          <Grid>
+            <Border Background="#FF131313" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="5"/>
+            <TextBox x:Name="PART_EditableTextBox" Margin="2,2,28,2" VerticalContentAlignment="Center" Padding="8,3"
+                     Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextBrush}"
+                     CaretBrush="{DynamicResource TextBrush}" IsReadOnly="{Binding IsReadOnly, RelativeSource={RelativeSource TemplatedParent}}"/>
+            <ToggleButton Focusable="False" ClickMode="Press" HorizontalAlignment="Right" Width="26" Background="Transparent"
+                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+              <ToggleButton.Template>
+                <ControlTemplate TargetType="ToggleButton">
+                  <Grid Background="Transparent">
+                    <Path HorizontalAlignment="Center" VerticalAlignment="Center" Data="M0,0 L4,4 L8,0"
+                          Stroke="{DynamicResource MutedBrush}" StrokeThickness="1.6"/>
+                  </Grid>
+                </ControlTemplate>
+              </ToggleButton.Template>
+            </ToggleButton>
+            <Popup IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" AllowsTransparency="True" Focusable="False">
+              <Border MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}" MaxHeight="{TemplateBinding MaxDropDownHeight}"
+                      Background="{DynamicResource PanelBg}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="5" Padding="3" Margin="0,2,0,0">
+                <ScrollViewer><StackPanel IsItemsHost="True"/></ScrollViewer>
+              </Border>
             </Popup>
           </Grid>
         </ControlTemplate>
@@ -329,11 +383,11 @@
 
   <!-- 右鍵／下拉選單（「更多」按鈕的選單）：深色底、白字，滑過變青色 -->
   <Style TargetType="ContextMenu">
-    <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="ContextMenu">
-          <local:SkinBorder Slot="menu" Background="{StaticResource PanelBg}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" Padding="4">
+          <local:SkinBorder Slot="menu" Background="{DynamicResource PanelBg}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" Padding="4">
             <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"/>
           </local:SkinBorder>
         </ControlTemplate>
@@ -341,20 +395,20 @@
     </Setter>
   </Style>
   <Style TargetType="MenuItem">
-    <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
     <Setter Property="Padding" Value="14,7"/>
     <Setter Property="Cursor" Value="Hand"/>
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="MenuItem">
-          <Border x:Name="Bd" Background="Transparent" Padding="{TemplateBinding Padding}">
-            <ContentPresenter ContentSource="Header" RecognizesAccessKey="True" VerticalAlignment="Center"/>
-          </Border>
+          <Grid>
+            <Border x:Name="Hl" Background="{DynamicResource TextBrush}" CornerRadius="3" Opacity="0" IsHitTestVisible="False"/>
+            <Border x:Name="Bd" Background="Transparent" Padding="{TemplateBinding Padding}">
+              <ContentPresenter ContentSource="Header" RecognizesAccessKey="True" VerticalAlignment="Center"/>
+            </Border>
+          </Grid>
           <ControlTemplate.Triggers>
-            <Trigger Property="IsHighlighted" Value="True">
-              <Setter TargetName="Bd" Property="Background" Value="#FF2A2A2A"/>
-              <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
-            </Trigger>
+            <Trigger Property="IsHighlighted" Value="True"><Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/><Trigger.EnterActions><BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="Hl" Storyboard.TargetProperty="Opacity" To="0.12" Duration="0:0:0.1"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation></Storyboard></BeginStoryboard></Trigger.EnterActions><Trigger.ExitActions><BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="Hl" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.16"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation></Storyboard></BeginStoryboard></Trigger.ExitActions></Trigger>
             <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4"/></Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
@@ -364,20 +418,36 @@
 
   <!-- 深色分頁（實例設置頁、內容頁用；需要時用 BasedOn 或明確指定，不是全域） -->
   <Style x:Key="DarkTabItem" TargetType="TabItem">
-    <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
+    <Setter Property="Foreground" Value="{DynamicResource MutedBrush}"/>
     <Setter Property="Cursor" Value="Hand"/>
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="TabItem">
-          <local:SkinBorder x:Name="Bd" Slot="tab" Padding="14,8" Margin="0,0,4,0" Background="Transparent" BorderThickness="0,0,0,2" BorderBrush="Transparent">
-            <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-          </local:SkinBorder>
+          <Grid>
+            <local:SkinBorder x:Name="Bd" Slot="tab" Padding="14,8" Margin="0,0,4,0" Background="Transparent" BorderThickness="0,0,0,2" BorderBrush="Transparent">
+              <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </local:SkinBorder>
+            <!-- 選取底線：從中間往兩側長出來、取消選取時收回（原本是瞬間切換） -->
+            <Border x:Name="Underline" Height="2" VerticalAlignment="Bottom" Margin="0,0,4,0" IsHitTestVisible="False"
+                    Background="{DynamicResource AccentBrush}" Opacity="0" RenderTransformOrigin="0.5,0.5">
+              <Border.RenderTransform><ScaleTransform x:Name="UlSc" ScaleX="0.2"/></Border.RenderTransform>
+            </Border>
+          </Grid>
           <ControlTemplate.Triggers>
-            <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{StaticResource TextBrush}"/></Trigger>
+            <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{DynamicResource TextBrush}"/></Trigger>
             <Trigger Property="IsSelected" Value="True">
-              <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
-              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+              <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
               <Setter TargetName="Bd" Property="Slot" Value="tab_selected"/>
+              <Trigger.EnterActions><BeginStoryboard><Storyboard>
+                <DoubleAnimation Storyboard.TargetName="Underline" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.14"/>
+                <DoubleAnimation Storyboard.TargetName="UlSc" Storyboard.TargetProperty="ScaleX" To="1" Duration="0:0:0.24">
+                  <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                </DoubleAnimation>
+              </Storyboard></BeginStoryboard></Trigger.EnterActions>
+              <Trigger.ExitActions><BeginStoryboard><Storyboard>
+                <DoubleAnimation Storyboard.TargetName="Underline" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.16"/>
+                <DoubleAnimation Storyboard.TargetName="UlSc" Storyboard.TargetProperty="ScaleX" To="0.2" Duration="0:0:0.16"/>
+              </Storyboard></BeginStoryboard></Trigger.ExitActions>
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
@@ -387,12 +457,12 @@
   <Style x:Key="DarkTabControl" TargetType="TabControl">
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="BorderThickness" Value="0"/>
-    <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="TabControl">
           <DockPanel>
-            <Border DockPanel.Dock="Top" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
+            <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1">
               <TabPanel IsItemsHost="True"/>
             </Border>
             <ContentPresenter ContentSource="SelectedContent"/>

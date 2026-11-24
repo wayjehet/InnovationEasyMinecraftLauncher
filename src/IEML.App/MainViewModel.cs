@@ -95,6 +95,9 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnMusicVolumeChanged(double value) => _music.Volume = (float)value;
 
+    /// 給設置頁（實例目錄變更後重新掃描實例清單）。
+    public Task RefreshInstancesPublicAsync() => RefreshAsync();
+
     async Task RefreshAsync()
     {
         var keep = SelectedInstance?.Id;
@@ -153,6 +156,7 @@ public partial class MainViewModel : ObservableObject
         NewInstancePanel? panel = null;
         var name = $"實例 {Instances.Count + 1}";
         if (!await mw.ShowModal("新增實例", close => panel = new NewInstancePanel(name, close), 380) || panel is null) return;
+        InstanceRoots.SetActive(panel.RootPath);   // 新實例建立在選的目錄（並記住，下次預設用它）
         await _instances.CreateAsync(new InstanceConfig { Name = panel.InstanceName, McVersion = panel.McVersion, Loader = panel.Loader });
         await RefreshAsync();
     }

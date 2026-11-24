@@ -14,7 +14,7 @@ public static class AppInfo
     {
         get
         {
-            var v = typeof(AppInfo).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.1.0-beta";
+            var v = typeof(AppInfo).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "1.0.0";
             var i = v.IndexOf('+');
             return i > 0 ? v[..i] : v;
         }

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Linq;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -22,6 +23,8 @@ public sealed class SkinEditor : StackPanel
         };
         Unloaded += (_, _) => SkinManager.Instance.Changed -= Rebuild;
     }
+
+    string? _selectedKey;
 
     static Brush Res(string key) => (Brush)Application.Current.FindResource(key);
 
@@ -57,20 +60,36 @@ public sealed class SkinEditor : StackPanel
                           "沒放圖的部位使用預設樣式。按鈕有「滑過／按下／停用」三種狀態圖，沒放就沿用一般圖。" +
                           "「九宮格邊距」＞0 時，圖的四個角不會被拉伸，適合會變大小的按鈕與面板。"));
 
-        string? group = null;
-        foreach (var slot in SkinManager.Slots)
+        // 下拉選單：選一個部位，只顯示那個部位的設定（取代原本把所有部位一次列出的長清單）
+        var slots = SkinManager.Slots.ToList();
+        if (_selectedKey is null || !slots.Any(x => x.Key == _selectedKey)) _selectedKey = slots.FirstOrDefault()?.Key;
+
+        Children.Add(new TextBlock { Text = "選擇要換圖的部位", FontWeight = FontWeights.Bold, Margin = new Thickness(0, 10, 0, 4) });
+        var combo = new ComboBox { Margin = new Thickness(0, 0, 0, 8), MinHeight = 30 };
+        try { combo.Style = (Style)Application.Current.FindResource("DarkComboBox"); } catch { }
+        int selIndex = 0;
+        for (int i = 0; i < slots.Count; i++)
         {
-            if (slot.Group != group)
-            {
-                group = slot.Group;
-                Children.Add(new TextBlock { Text = group, FontWeight = FontWeights.Bold, FontSize = 14, Margin = new Thickness(0, 14, 0, 4) });
-            }
-            Children.Add(Row(slot.Key, slot.Title, slot.Hint, false));
-            if (sm.Get(slot.Key) is not null && slot.Key != "logo") Children.Add(OptionsRow(slot));
-            if (slot.States)
-                foreach (var (suffix, title) in SkinManager.StateInfo)
-                    Children.Add(Row(slot.Key + suffix, "└ " + title, "", true));
+            var sl = slots[i];
+            bool has = sm.Get(sl.Key) is not null;
+            combo.Items.Add(new ComboBoxItem { Content = $"{(has ? "● " : "○ ")}{sl.Group} ▸ {sl.Title}", Tag = sl.Key });
+            if (sl.Key == _selectedKey) selIndex = i;
         }
+        combo.SelectedIndex = selIndex;
+        combo.SelectionChanged += (_, _) =>
+        {
+            if (combo.SelectedItem is ComboBoxItem it && it.Tag is string k && k != _selectedKey) { _selectedKey = k; Rebuild(); }
+        };
+        Children.Add(combo);
+        Children.Add(Hint("● ＝已有圖片（自訂或 exe 旁素材）　○ ＝使用預設樣式"));
+
+        var slot = slots.FirstOrDefault(x => x.Key == _selectedKey);
+        if (slot is null) return;
+        Children.Add(Row(slot.Key, slot.Title, slot.Hint, false));
+        if (sm.Get(slot.Key) is not null && slot.Key != "logo") Children.Add(OptionsRow(slot));
+        if (slot.States)
+            foreach (var (suffix, title) in SkinManager.StateInfo)
+                Children.Add(Row(slot.Key + suffix, "└ " + title, "", true));
     }
 
     UIElement Row(string key, string title, string hint, bool indent)

@@ -4,17 +4,27 @@ namespace IEML.Core.Services;
 
 public class InstanceService : IInstanceService
 {
-    public string GetInstanceDir(Guid id) => Path.Combine(AppPaths.Instances, id.ToString("N"));
+    public string GetInstanceDir(Guid id) => InstanceRoots.DirFor(id);
     string CfgPath(Guid id) => Path.Combine(GetInstanceDir(id), "instance.json");
 
     public async Task<IReadOnlyList<InstanceConfig>> ListAsync()
     {
         var res = new List<InstanceConfig>();
-        foreach (var dir in Directory.GetDirectories(AppPaths.Instances))
+        var seen = new HashSet<Guid>();
+        foreach (var root in InstanceRoots.All)
         {
-            var p = Path.Combine(dir, "instance.json");
-            if (!File.Exists(p)) continue;
-            res.Add(await JsonStore.ReadAsync(p, () => new InstanceConfig()));
+            if (!Directory.Exists(root.Path)) continue;   // 外接硬碟沒插等：略過，不報錯
+            foreach (var dir in Directory.GetDirectories(root.Path))
+            {
+                var p = Path.Combine(dir, "instance.json");
+                if (!File.Exists(p)) continue;
+                try
+                {
+                    var cfg = await JsonStore.ReadAsync(p, () => new InstanceConfig());
+                    if (seen.Add(cfg.Id)) res.Add(cfg);
+                }
+                catch { }
+            }
         }
         return res.OrderBy(i => i.CreatedAt).ToList();
     }

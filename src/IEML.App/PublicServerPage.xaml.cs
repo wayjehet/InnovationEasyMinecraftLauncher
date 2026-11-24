@@ -51,9 +51,9 @@ public partial class PublicServerPage : UserControl
             var r = await _svc.SearchAsync(_keyword, _page);
             _items.Clear(); _items.AddRange(r); _live.Clear();
             Rebuild();
-            PageText.Text = $"第 {_page} 頁";
-            StatusText.Text = r.Count == 0 ? "沒有符合的伺服器（或回應格式與預期不同）。" : $"共 {r.Count} 筆。資料為站方快取，可用「即時查詢」確認。";
-            NextBtn.IsEnabled = r.Count >= 25 && _page < 100; // 每頁上限 25 筆
+            PageText.Text = _svc.LastTotalPages > 0 ? $"第 {_page} / {Math.Min(_svc.LastTotalPages, 100)} 頁" : $"第 {_page} 頁";
+            StatusText.Text = r.Count == 0 ? "沒有符合的伺服器。" : $"本頁 {r.Count} 筆" + (_svc.LastTotal > 0 ? $"（共 {_svc.LastTotal} 筆）" : "") + "。資料為站方快取，可用「即時查詢」確認。";
+            NextBtn.IsEnabled = _svc.LastTotalPages > 0 ? _page < Math.Min(_svc.LastTotalPages, 100) : r.Count >= 25 && _page < 100;
         }
         catch (Exception ex) { StatusText.Text = "錯誤：" + ex.Message; }
         finally { SearchBtn.IsEnabled = true; PrevBtn.IsEnabled = _page > 1; }

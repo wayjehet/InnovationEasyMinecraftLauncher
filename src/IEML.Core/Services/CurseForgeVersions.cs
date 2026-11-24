@@ -68,6 +68,13 @@ public partial class CurseForgeService : IVersionSource
         return list.OrderByDescending(v => v.Date).ToList();
     }
 
+    public async Task<string?> GetLongDescriptionAsync(ContentHit hit, CancellationToken ct = default)
+    {
+        using var doc = await Api(HttpMethod.Get, $"mods/{hit.ProjectId}/description", null, ct);
+        return doc.RootElement.TryGetProperty("data", out var d) && d.ValueKind == JsonValueKind.String
+            ? DescriptionText.Clean(d.GetString()) : null;
+    }
+
     public async Task<IReadOnlyDictionary<string, string>> GetProjectTitlesAsync(IEnumerable<string> ids, CancellationToken ct = default)
     {
         var nums = ids.Select(i => int.TryParse(i, out var n) ? n : (int?)null).Where(n => n.HasValue).Select(n => n!.Value).Distinct().ToArray();
@@ -80,7 +87,8 @@ public partial class CurseForgeService : IVersionSource
     }
 
     public async Task<IReadOnlyList<string>> InstallVersionAsync(InstanceConfig? target, ContentHit hit, ContentVersion version,
-        bool installRequired, IReadOnlyCollection<string> optionalProjects, CancellationToken ct = default)
+        bool installRequired, IReadOnlyCollection<string> optionalProjects, CancellationToken ct = default,
+        IReadOnlyDictionary<string, string>? pinnedVersions = null)
     {
         var warnings = new List<string>();
         int projectId = int.Parse(hit.ProjectId), fileId = int.Parse(version.Id);
@@ -103,12 +111,12 @@ public partial class CurseForgeService : IVersionSource
         if (installRequired && hit.Kind == ContentKind.Mod && f.TryGetProperty("dependencies", out var deps) && deps.ValueKind == JsonValueKind.Array)
             foreach (var d in deps.EnumerateArray())
                 if (Int(d, "relationType") == RelationRequired && Int(d, "modId") is int depId)
-                    await InstallProjectAsync(depId, ContentKind.Mod, cfg, dir, seen, 1, installed, null, ct);
+                    await InstallProjectAsync(depId, ContentKind.Mod, cfg, dir, seen, 1, installed, null, ct, pinnedVersions);
 
         foreach (var o in optionalProjects)
         {
             if (!int.TryParse(o, out var oid)) continue;
-            try { await InstallProjectAsync(oid, ContentKind.Mod, cfg, dir, seen, 1, installed, null, ct); }
+            try { await InstallProjectAsync(oid, ContentKind.Mod, cfg, dir, seen, 1, installed, null, ct, pinnedVersions); }
             catch (Exception ex) when (ex is not OperationCanceledException) { warnings.Add($"可選前置 {o} 沒有安裝：{ex.Message}"); }
         }
 

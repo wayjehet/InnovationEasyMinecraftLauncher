@@ -164,6 +164,7 @@ public partial class MainWindow : Window
     {
         _settingsTcs?.TrySetResult((false, null));
         var tcs = _settingsTcs = new TaskCompletionSource<(bool Saved, string? Server)>();
+        _navKey = null;
         ShowStage("實例設置 · " + inst.Name, "基本、模組、光影、資源包與快捷卡片");
         StageScroll.Visibility = Visibility.Collapsed;
         StageHost.Visibility = Visibility.Visible;
@@ -171,7 +172,9 @@ public partial class MainWindow : Window
         page = new InstanceSettingsPage(inst, accounts, new InstanceService(), ok =>
         {
             tcs.TrySetResult((ok, ok ? page!.LaunchServer : null));
-            Motion.FadeOut(StageOverlay, () => { StageOverlay.Visibility = Visibility.Collapsed; StageHost.Content = null; });
+            _navKey = null;
+            int tok = ++_closeToken;
+            Motion.FadeOut(StageOverlay, () => { if (tok != _closeToken) return; StageOverlay.Visibility = Visibility.Collapsed; StageHost.Content = null; });
         });
         StageHost.Content = page;
         return tcs.Task;
@@ -201,6 +204,23 @@ public partial class MainWindow : Window
         return _pageTcs.Task;
     }
 
+    // 右欄按鈕「再按一次就收回去」：記住目前覆蓋頁是哪個按鈕開的（覆蓋頁遮住左＋中欄，所以只有右欄按鈕能在頁面開著時被按到）
+    string? _navKey;
+    int _closeToken;
+
+    /// 已經開著同一個按鈕的頁面 → 關掉並回傳 true（呼叫端直接 return）；否則記下這個按鈕並回傳 false。
+    bool ToggleNav(string key)
+    {
+        if (StageOverlay.Visibility == Visibility.Visible && _navKey == key)
+        {
+            _pageStack.Clear();                       // 不管疊了幾層，一次全部收回
+            StageBack_Click(this, new RoutedEventArgs());
+            return true;
+        }
+        _navKey = key;
+        return false;
+    }
+
     void StageBack_Click(object sender, RoutedEventArgs e)
     {
         if (StageHost.Content is InstanceSettingsPage p) { p.Discard(); _settingsTcs?.TrySetResult((false, null)); }
@@ -212,8 +232,11 @@ public partial class MainWindow : Window
             Motion.FadeSlideIn(StageHost);
             return;
         }
+        _navKey = null;
+        int tok = ++_closeToken;
         Motion.FadeOut(StageOverlay, () =>
         {
+            if (tok != _closeToken) return;          // 淡出途中又開了別的頁面：不要把新頁面關掉
             StageOverlay.Visibility = Visibility.Collapsed;
             StageHost.Content = null;                // 觸發頁面的 Unloaded（取消事件訂閱、停計時器）
             _pageStack.Clear();
@@ -243,6 +266,7 @@ public partial class MainWindow : Window
 
     void ShowStage(string title, string footer)
     {
+        _closeToken++;                                // 取消還沒做完的淡出關閉
         StageActions.Children.Clear();
         _pageStack.Clear(); _pageTcs?.TrySetResult(); _pageTcs = null;
         StageHost.Content = null; StageHost.Visibility = Visibility.Collapsed; StageScroll.Visibility = Visibility.Visible;
@@ -263,6 +287,7 @@ public partial class MainWindow : Window
 
     void SettingsStage_Click(object sender, RoutedEventArgs e)
     {
+        if (ToggleNav("settings")) return;
         ShowStage("設置", "配色、帳號、素材與啟動器資訊");
         StageActions.Children.Clear();
         StageActions.ItemWidth = double.NaN;
@@ -271,22 +296,25 @@ public partial class MainWindow : Window
         var panel = new StackPanel { Margin = new Thickness(4) };
         panel.Children.Add(new TextBlock { Text = "主題配色", FontSize = 16, FontWeight = FontWeights.Bold, Margin = new Thickness(0,0,0,12) });
         var editor = new ThemeEditor(_theme, () => ApplyTheme());
-        panel.Children.Add(new TextBlock { Text = "強調色預設", Foreground = (System.Windows.Media.Brush)FindResource("MutedBrush"), Margin = new Thickness(0,0,0,6) });
+        panel.Children.Add(Dyn(new TextBlock { Text = "強調色預設", Margin = new Thickness(0,0,0,6) }, TextBlock.ForegroundProperty, "MutedBrush"));
         var swatches = new WrapPanel { Margin = new Thickness(0,0,0,12) };
         foreach (var c in new[] { "#00FFFF", "#7CFF6B", "#FFB020", "#FF5C8A", "#8B7CFF", "#FFFFFF" })
         {
-            var swatch = new Button
+            var swatch = new Border
             {
-                Width = 36, Height = 36, Margin = new Thickness(0,0,8,8),
+                Width = 36, Height = 36, Margin = new Thickness(0,0,8,8), CornerRadius = new CornerRadius(6),
                 Background = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(c)),
-                BorderBrush = (System.Windows.Media.Brush)FindResource("LineBrush"),
-                BorderThickness = new Thickness(1)
+                BorderThickness = new Thickness(1),
+                Cursor = System.Windows.Input.Cursors.Hand,
+                ToolTip = c
             };
-            swatch.Click += (_, _) => { _theme.Accent = c; editor.Refresh(); ApplyTheme(); };
+            swatch.SetResourceReference(Border.BorderBrushProperty, "LineBrush");
+            // 不用 Button：全域 ArtButton 樣式的範本會忽略 Background，六個色塊會全部變成同一個青色
+            swatch.MouseLeftButtonUp += (_, _) => { _theme.Accent = c; editor.Refresh(); ApplyTheme(); };
             swatches.Children.Add(swatch);
         }
         panel.Children.Add(swatches);
-        panel.Children.Add(new TextBlock { Text = "點一個部分展開，用 R、G、B 拉條調整；拖動時即時套用並自動儲存。", Foreground = (System.Windows.Media.Brush)FindResource("MutedBrush"), FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0,0,0,8) });
+        panel.Children.Add(Dyn(new TextBlock { Text = "點一個部分展開，用 R、G、B 拉條調整；拖動時即時套用並自動儲存。", FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0,0,0,8) }, TextBlock.ForegroundProperty, "MutedBrush"));
         panel.Children.Add(editor);
 
         panel.Children.Add(new TextBlock { Text = "自訂圖片（素材）", FontSize = 16, FontWeight = FontWeights.Bold, Margin = new Thickness(0,20,0,8) });
@@ -298,16 +326,21 @@ public partial class MainWindow : Window
         resetButton.Click += (_, _) => { _theme.CopyFrom(new ThemeSettings()); editor.Refresh(); ApplyTheme(); };
         actions.Children.Add(resetButton);
         panel.Children.Add(actions);
-        panel.Children.Add(new TextBlock { Text = $"版本：{AppInfo.Version}\n專案：{AppInfo.Repo}", Foreground = (System.Windows.Media.Brush)FindResource("MutedBrush"), Margin = new Thickness(0,12,0,0), TextWrapping = TextWrapping.Wrap });
+        panel.Children.Add(Dyn(new TextBlock { Text = $"版本：{AppInfo.Version}\n專案：{AppInfo.Repo}", Margin = new Thickness(0,12,0,0), TextWrapping = TextWrapping.Wrap }, TextBlock.ForegroundProperty, "MutedBrush"));
 
         StageActions.Children.Add(panel);
         StageOverlay.Visibility = Visibility.Visible;
     }
 
+    /// 讓元素的屬性綁到主題資源（DynamicResource）：配色改變時會立刻重繪，不用重開。
+    static T Dyn<T>(T el, DependencyProperty prop, string key) where T : FrameworkElement { el.SetResourceReference(prop, key); return el; }
+
     void DownloadStage_Click(object sender, RoutedEventArgs e)
     {
+        if (ToggleNav("download")) return;
         ShowStage("下載", "建立實例、搜尋 Modrinth／CurseForge、匯入整合包與管理已安裝內容");
         var control = new DownloadStageControl(new InstanceService());
+        control.InstanceCreated += () => _ = Vm.RefreshInstancesPublicAsync();
         control.Margin = new Thickness(0);
         StageActions.Children.Clear();
         StageActions.ItemWidth = double.NaN;
@@ -318,6 +351,7 @@ public partial class MainWindow : Window
 
     void P2PStage_Click(object sender, RoutedEventArgs e)
     {
+        if (ToggleNav("p2p")) return;
         ShowStage("P2P 連線", "陶瓦聯機與 EasyTier 房間工具");
         AddStageAction("陶瓦聯機 Terracotta", "開房、加入房間與查看連線狀態", Vm.OpenTerracottaCommand);
         AddStageAction("EasyTier 房間", "進階虛擬區域網路連線", Vm.OpenRoomCommand);
@@ -326,6 +360,7 @@ public partial class MainWindow : Window
 
     void MoreStage_Click(object sender, RoutedEventArgs e)
     {
+        if (ToggleNav("more")) return;
         ShowStage("更多工具", "伺服器、遊戲日誌、種子地圖、地圖與帳號");
         // 固定 2 欄 × 3 列，順序固定，不隨視窗大小跑位；最後一格預留
         var grid = new System.Windows.Controls.Primitives.UniformGrid { Columns = 2, Rows = 3, Height = 3 * 84, VerticalAlignment = VerticalAlignment.Top };
@@ -361,6 +396,7 @@ public partial class MainWindow : Window
 
     void MusicStage_Click(object sender, RoutedEventArgs e)
     {
+        if (ToggleNav("music")) return;
         ShowStage("音樂", "播放、暫停、切換曲目或選擇音樂資料夾");
         StageActions.Children.Clear();
         var panel = new StackPanel { Margin = new Thickness(4) };

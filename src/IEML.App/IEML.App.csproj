@@ -7,12 +7,18 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>IEML.App</RootNamespace>
     <AssemblyName>InnovationEasyMinecraftLauncher</AssemblyName>
-    <Version>1.2.1</Version>
-    <InformationalVersion>1.2.1EF</InformationalVersion>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+    <Version>1.3.2</Version>
+    <InformationalVersion>1.3.2</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\IEML.Core\IEML.Core.csproj" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.*" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- 啟動器圖示：exe 圖示（ApplicationIcon）＋視窗／工作列圖示（Resource） -->
+    <Resource Include="app.ico" />
   </ItemGroup>
   <ItemGroup>
     <!-- 電繪素材：Assets 資料夾內的檔案會複製到輸出資料夾（使用者也可放進 %AppData%\InnovationEasyLauncher\Assets 覆蓋） -->

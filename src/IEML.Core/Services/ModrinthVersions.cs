@@ -35,8 +35,16 @@ public partial class ModrinthService : IVersionSource
     }
 
     public Task<IReadOnlyList<string>> InstallVersionAsync(InstanceConfig? target, ContentHit hit, ContentVersion version,
-        bool installRequired, IReadOnlyCollection<string> optionalProjects, CancellationToken ct = default) =>
-        InstallVersionAsync(target?.Id ?? Guid.Empty, hit.Kind, hit.ProjectId, version.Id, installRequired, optionalProjects, ct);
+        bool installRequired, IReadOnlyCollection<string> optionalProjects, CancellationToken ct = default,
+        IReadOnlyDictionary<string, string>? pinnedVersions = null) =>
+        InstallVersionAsync(target?.Id ?? Guid.Empty, hit.Kind, hit.ProjectId, version.Id, installRequired, optionalProjects, ct, pinnedVersions);
+
+    public async Task<string?> GetLongDescriptionAsync(ContentHit hit, CancellationToken ct = default)
+    {
+        using var doc = await GetJson($"project/{Uri.EscapeDataString(hit.ProjectId)}", ct);
+        return doc.RootElement.TryGetProperty("body", out var b) && b.ValueKind == JsonValueKind.String
+            ? DescriptionText.Clean(b.GetString()) : null;
+    }
 
     static IReadOnlyList<string> StrList(JsonElement e, string name) =>
         e.TryGetProperty(name, out var a) && a.ValueKind == JsonValueKind.Array
@@ -100,7 +108,8 @@ public partial class ModrinthService : IVersionSource
     /// 整合包：下載該版本的 .mrpack 並建立新實例（instanceId 不使用）。
     /// 其他：先裝前置（必要的看 installRequired，可選的看使用者勾選），再下載本體，最後移除同專案的其他舊版本檔案。
     public async Task<IReadOnlyList<string>> InstallVersionAsync(Guid instanceId, ContentKind kind, string projectId, string versionId,
-        bool installRequired, IReadOnlyCollection<string>? optionalProjects, CancellationToken ct = default)
+        bool installRequired, IReadOnlyCollection<string>? optionalProjects, CancellationToken ct = default,
+        IReadOnlyDictionary<string, string>? pinnedVersions = null)
     {
         var warnings = new List<string>();
         using var vdoc = await GetJson($"version/{Uri.EscapeDataString(versionId)}", ct);
@@ -131,11 +140,11 @@ public partial class ModrinthService : IVersionSource
             foreach (var d in deps.EnumerateArray())
                 if (d.GetProperty("dependency_type").GetString() == "required" &&
                     d.TryGetProperty("project_id", out var pid) && pid.ValueKind == JsonValueKind.String)
-                    await InstallProject(pid.GetString()!, cfg.McVersion, loader, dir, seen, 1, ct);
+                    await InstallProject(pid.GetString()!, cfg.McVersion, loader, dir, seen, 1, ct, pinnedVersions);
 
         foreach (var opt in optionalProjects ?? Array.Empty<string>())
         {
-            try { await InstallProject(opt, cfg.McVersion, loader, dir, seen, 1, ct); }
+            try { await InstallProject(opt, cfg.McVersion, loader, dir, seen, 1, ct, pinnedVersions); }
             catch (Exception ex) when (ex is not OperationCanceledException) { warnings.Add($"可選前置 {opt} 沒有安裝：{ex.Message}"); }
         }
 

@@ -12,7 +12,7 @@ public partial class ModrinthService : IModrinthService
     {
         var c = new HttpClient { BaseAddress = new Uri("https://api.modrinth.com/v2/") };
         // Modrinth 要求可辨識的 User-Agent（含聯絡方式）：這裡用專案網址。
-        c.DefaultRequestHeaders.UserAgent.ParseAdd("InnovationEasyLauncher/0.1-beta (https://github.com/wayjehet/InnovationEasyMinecraftLauncher)");
+        c.DefaultRequestHeaders.UserAgent.ParseAdd("InnovationEasyLauncher/1.0 (https://github.com/wayjehet/InnovationEasyMinecraftLauncher)");
         return c;
     }
 
@@ -134,19 +134,32 @@ public partial class ModrinthService : IModrinthService
         await InstallProject(projectId, cfg.McVersion, loader, dir, new HashSet<string>(), 0, ct);
     }
 
-    async Task InstallProject(string projectId, string mc, string? loader, string dir, HashSet<string> seen, int depth, CancellationToken ct)
+    async Task InstallProject(string projectId, string mc, string? loader, string dir, HashSet<string> seen, int depth, CancellationToken ct,
+        IReadOnlyDictionary<string, string>? pinned = null)
     {
         if (!seen.Add(projectId) || depth > 5) return;
-        var q = $"project/{projectId}/version?game_versions={Uri.EscapeDataString(JsonSerializer.Serialize(new[] { mc }))}";
-        if (loader != null) q += $"&loaders={Uri.EscapeDataString(JsonSerializer.Serialize(new[] { loader }))}";
-        using var doc = await GetJson(q, ct);
-        if (doc.RootElement.GetArrayLength() == 0) throw new InvalidOperationException($"找不到適用於 {mc} 的版本（{projectId}）");
-        var ver = PickVersion(doc.RootElement);
+        JsonDocument doc;
+        JsonElement ver;
+        if (pinned is not null && pinned.TryGetValue(projectId, out var pinId))
+        {
+            // 使用者指定了這個前置模組的版本：直接取那一個版本
+            doc = await GetJson($"version/{Uri.EscapeDataString(pinId)}", ct);
+            ver = doc.RootElement;
+        }
+        else
+        {
+            var q = $"project/{projectId}/version?game_versions={Uri.EscapeDataString(JsonSerializer.Serialize(new[] { mc }))}";
+            if (loader != null) q += $"&loaders={Uri.EscapeDataString(JsonSerializer.Serialize(new[] { loader }))}";
+            doc = await GetJson(q, ct);
+            if (doc.RootElement.GetArrayLength() == 0) { doc.Dispose(); throw new InvalidOperationException($"找不到適用於 {mc} 的版本（{projectId}）"); }
+            ver = PickVersion(doc.RootElement);
+        }
+        using var keepDoc = doc;
 
         foreach (var dep in ver.GetProperty("dependencies").EnumerateArray())
             if (dep.GetProperty("dependency_type").GetString() == "required" &&
                 dep.TryGetProperty("project_id", out var pid) && pid.ValueKind == JsonValueKind.String)
-                await InstallProject(pid.GetString()!, mc, loader, dir, seen, depth + 1, ct);
+                await InstallProject(pid.GetString()!, mc, loader, dir, seen, depth + 1, ct, pinned);
 
         var files = ver.GetProperty("files");
         var file = files.EnumerateArray().FirstOrDefault(f => f.GetProperty("primary").GetBoolean());

@@ -2,12 +2,12 @@
 
 [繁體中文](README.md) | **English**
 
-[![Version](https://img.shields.io/github/v/release/wayjehet/InnovationEasyMinecraftLauncher?label=version&color=00FFFF)](https://github.com/wayjehet/InnovationEasyMinecraftLauncher/releases)
+[![Version](https://img.shields.io/github/v/release/wayjehet/InnovationEasyMinecraftLauncher?label=version&color=00FFFF&cacheSeconds=300)](https://github.com/wayjehet/InnovationEasyMinecraftLauncher/releases)
 [![Build](https://img.shields.io/github/actions/workflow/status/wayjehet/InnovationEasyMinecraftLauncher/build.yml?label=build)](https://github.com/wayjehet/InnovationEasyMinecraftLauncher/actions/workflows/build.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 ![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
 ![Platform](https://img.shields.io/badge/platform-Windows-0078D6)
-![Status](https://img.shields.io/badge/status-Beta-orange)
+![Status](https://img.shields.io/badge/status-Stable-brightgreen)
 ![AI co-authored](https://img.shields.io/badge/AI-co--authored-8A2BE2)
 
 A Minecraft: Java Edition launcher written in **.NET 8 + WPF**, targeting Windows.
@@ -114,7 +114,7 @@ The main window has three columns (980×640, resizable), roughly **left 311 : mi
 
 Page contents:
 
-- **Settings**: account management, CurseForge API key, theme colors, assets folder and asset list, reset card positions, version info and Beta notice, check for updates / auto-update toggle, GitHub project page.
+- **Settings**: account management, CurseForge API key, theme colors, assets folder and asset list, reset card positions, version info, check for updates / auto-update toggle, GitHub project page.
 - **Download**: tabs "Games" (version list + create instance), "Content" (Modrinth / CurseForge search, version picking and install), "Maps"; an "Import modpack" button sits in the page header. Manage installed mods / shaders / resource packs in "Instance settings".
 - **P2P**: Terracotta, EasyTier rooms.
 - **More**: server lookup, game log, seed map, map management, account management.
@@ -155,9 +155,9 @@ Output goes to `dist\`. If `native\ieml_cubiomes.dll` exists it is copied to the
 
 ### Publishing a new release
 
-1. Edit `<Version>` (numeric) and `<InformationalVersion>` (display name) in `src/IEML.App/IEML.App.csproj`.
-2. Push a tag matching the version, e.g. `v1.2.2`.
-3. GitHub Actions builds and publishes the Release.
+1. Push a version tag, e.g. `v1.3.1` (or run "Build and Release" manually in Actions and enter the tag).
+2. GitHub Actions builds with the **tag** as the version (the numeric part becomes the program version; the full tag without the leading `v` becomes the displayed version) and publishes the Release. You do not need to edit `IEML.App.csproj` first.
+3. `<Version>` / `<InformationalVersion>` in `IEML.App.csproj` only affect local builds; update them now and then to follow the latest release.
 
 > The updater only looks at the leading numbers of the version: `1.2.1EF` and `1.2.1EG` are treated as the same version and **will not prompt each other to update**. For older versions to receive an update, the number must increase.
 

@@ -13,6 +13,9 @@ public partial class DownloadStageControl : UserControl
     readonly CurseForgeService _curseForge;
     readonly ObservableCollection<ContentHit> _results = new();
 
+    /// 在「遊戲」分頁建立了新實例（宿主可據此重新整理主畫面的實例清單）。
+    public event Action? InstanceCreated;
+
     public DownloadStageControl(IInstanceService instances)
     {
         InitializeComponent();
@@ -20,25 +23,10 @@ public partial class DownloadStageControl : UserControl
         _modrinth = new ModrinthService(instances);
         _curseForge = new CurseForgeService(instances);
         ResultsList.ItemsSource = _results;
-        LoaderBox.ItemsSource = Enum.GetValues<LoaderType>();
-        LoaderBox.SelectedItem = LoaderType.Vanilla;
-        Loaded += async (_, _) => { await LoadVersionsAsync(); await LoadInstancesAsync(); };
-        LoaderBox.SelectionChanged += (_, _) => { UpdateSummary(); UpdateLoaderVersionHint(); };
-        VersionBox.SelectionChanged += (_, _) => { UpdateSummary(); UpdateLoaderVersionHint(); };
+        GamePanel.Initialize(instances);
+        GamePanel.InstanceCreated += () => { InstanceCreated?.Invoke(); _ = LoadInstancesAsync(); };
+        Loaded += async (_, _) => await LoadInstancesAsync();
         InitDetail();
-    }
-
-    async Task LoadVersionsAsync()
-    {
-        try
-        {
-            var include = IncludeSnapshots.IsChecked == true;
-            var versions = await VersionService.ListAsync(include);
-            VersionBox.ItemsSource = versions;
-            if (versions.Count > 0) VersionBox.SelectedIndex = 0;
-            UpdateSummary();
-        }
-        catch (Exception ex) { GameStatus.Text = ex.Message; }
     }
 
     async Task LoadInstancesAsync()
@@ -48,49 +36,6 @@ public partial class DownloadStageControl : UserControl
         InstanceBox.SelectedIndex = 0;
         TargetBox.ItemsSource = instances;
         TargetBox.SelectedItem = InstanceBox.SelectedItem;
-        UpdateSummary();
-    }
-
-    async void VersionsChanged(object sender, RoutedEventArgs e) => await LoadVersionsAsync();
-
-    void UpdateSummary()
-    {
-        var mc = VersionBox.SelectedItem as string ?? VersionBox.Text;
-        var loader = LoaderBox.SelectedItem is LoaderType l ? l : LoaderType.Vanilla;
-        var loaderText = LoaderVersionBox.Text.Trim();
-        NameBox.Text = string.IsNullOrWhiteSpace(NameBox.Text) && !string.IsNullOrWhiteSpace(mc)
-            ? $"{loader} {mc}" : NameBox.Text;
-        SummaryText.Text = loader == LoaderType.Vanilla
-            ? $"建立「{NameBox.Text}」· Minecraft {mc} · 原版"
-            : $"建立「{NameBox.Text}」· Minecraft {mc} · {loader}{(string.IsNullOrEmpty(loaderText) ? "" : " " + loaderText)}";
-    }
-
-    async void Create_Click(object sender, RoutedEventArgs e)
-    {
-        var name = NameBox.Text.Trim();
-        var mc = VersionBox.SelectedItem as string ?? VersionBox.Text.Trim();
-        var loader = LoaderBox.SelectedItem is LoaderType l ? l : LoaderType.Vanilla;
-        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(mc))
-        {
-            GameStatus.Text = "請輸入實例名稱與 Minecraft 版本";
-            return;
-        }
-        CreateButton.IsEnabled = false;
-        InstallProgress.Value = 15;
-        try
-        {
-            await _instances.CreateAsync(new InstanceConfig
-            {
-                Name = name,
-                McVersion = mc,
-                Loader = loader,
-                LoaderVersion = string.IsNullOrWhiteSpace(LoaderVersionBox.Text) ? null : LoaderVersionBox.Text.Trim()
-            });
-            InstallProgress.Value = 100;
-            GameStatus.Text = "實例建立完成";
-        }
-        catch (Exception ex) { GameStatus.Text = "建立失敗：" + ex.Message; }
-        finally { CreateButton.IsEnabled = true; }
     }
 
     /// 地圖：開啟地圖視窗（匯入 zip／資料夾／網址、CurseForge 地圖、備份、刪除），放進「安裝到實例」選的實例。
@@ -98,7 +43,7 @@ public partial class DownloadStageControl : UserControl
     {
         if (InstanceBox.SelectedItem is not InstanceConfig inst)
         {
-            _ = Dialogs.InfoAsync("地圖", "請先建立或選擇一個實例（地圖會放進該實例的 saves 資料夾）。");
+            _ = Dialogs.InfoAsync("地圖", "請先建立一個實例，並在「內容」分頁的「安裝到」選好（地圖會放進該實例的 saves 資料夾）。");
             return;
         }
         (Window.GetWindow(this) as MainWindow)?.ShowPage("地圖管理", "匯入、備份與瀏覽地圖", new MapsPage(_instances, inst));
@@ -206,23 +151,6 @@ public partial class DownloadStageControl : UserControl
             if (InstanceBox.SelectedItem is InstanceConfig inst) FilterMcBox.Text = inst.McVersion;
         }
         catch (Exception ex) { ContentStatus.Text = "載入篩選失敗：" + ex.Message; }
-    }
-
-    void UpdateLoaderVersionHint()
-    {
-        var loader = LoaderBox.SelectedItem is LoaderType l ? l : LoaderType.Vanilla;
-        LoaderVersionBox.IsEnabled = loader != LoaderType.Vanilla;
-        if (loader == LoaderType.Vanilla)
-        {
-            LoaderVersionBox.Text = "";
-            LoaderVersionBox.ItemsSource = null;
-        }
-        else
-        {
-            var mc = VersionBox.SelectedItem as string ?? VersionBox.Text;
-            LoaderVersionBox.ItemsSource = new[] { "自動使用最新穩定版" };
-            LoaderVersionBox.Text = "自動使用最新穩定版";
-        }
     }
 
     ContentKind GetKind() => ((KindBox.SelectedItem as ComboBoxItem)?.Tag as string) switch

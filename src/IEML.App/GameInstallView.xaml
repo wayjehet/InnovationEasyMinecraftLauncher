@@ -1,0 +1,77 @@
+<UserControl x:Class="IEML.App.GameInstallView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Foreground="{DynamicResource TextBrush}">
+  <UserControl.Resources>
+    <ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="PageStyles.xaml"/></ResourceDictionary.MergedDictionaries></ResourceDictionary>
+  </UserControl.Resources>
+  <Grid>
+    <!-- 步驟 1：選 Minecraft 版本 -->
+    <DockPanel x:Name="ListStep">
+      <TextBlock DockPanel.Dock="Top" Text="選擇 Minecraft 版本" FontSize="15" FontWeight="Bold"/>
+      <TextBox DockPanel.Dock="Top" x:Name="SearchBox" Height="32" Margin="0,8,0,6" TextChanged="Search_Changed" ToolTip="輸入版本號篩選，例如 1.20 或 24w"/>
+      <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+        <Button x:Name="ChipRelease" Content="正式版" Tag="release" Height="30" Padding="14,0" Margin="0,0,6,0" Click="Chip_Click"/>
+        <Button x:Name="ChipSnapshot" Content="快照" Tag="snapshot" Height="30" Padding="14,0" Margin="0,0,6,0" Click="Chip_Click"/>
+        <Button x:Name="ChipApril" Content="愚人節" Tag="april" Height="30" Padding="14,0" Margin="0,0,6,0" Click="Chip_Click" ToolTip="每年愚人節 Mojang 發佈的玩笑版本"/>
+        <Button x:Name="ChipOld" Content="舊版" Tag="old" Height="30" Padding="14,0" Margin="0,0,6,0" Click="Chip_Click"/>
+      </WrapPanel>
+      <TextBlock DockPanel.Dock="Bottom" x:Name="ListStatus" Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+      <ListBox x:Name="VersionList" HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+               SelectionChanged="VersionList_SelectionChanged">
+        <ListBox.ItemTemplate>
+          <DataTemplate>
+            <DockPanel Margin="4,3">
+              <TextBlock DockPanel.Dock="Right" Text="{Binding DateText}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center"/>
+              <TextBlock DockPanel.Dock="Right" Text="{Binding TypeText}" Foreground="{DynamicResource MutedBrush}" Margin="0,0,14,0" VerticalAlignment="Center"/>
+              <TextBlock Text="{Binding Id}" FontWeight="Bold" VerticalAlignment="Center"/>
+            </DockPanel>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </DockPanel>
+
+    <!-- 步驟 2：設定並安裝 -->
+    <ScrollViewer x:Name="ConfigStep" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+      <StackPanel Margin="0,0,8,0">
+        <DockPanel Margin="0,0,0,12">
+          <Button x:Name="BackButton" DockPanel.Dock="Left" Content="← 換版本" Style="{StaticResource GhostButton}" Height="32" Padding="12,0" Click="BackToList_Click"/>
+          <TextBlock x:Name="VersionTitle" FontSize="16" FontWeight="Bold" Margin="12,0,0,0" VerticalAlignment="Center"/>
+        </DockPanel>
+
+        <TextBlock Text="實例名稱" Foreground="{DynamicResource MutedBrush}" FontSize="12"/>
+        <TextBox x:Name="NameBox" Height="32" Margin="0,4,0,14" TextChanged="Name_Changed"/>
+
+        <TextBlock Text="載入器（要玩模組才需要選，只玩原版就用「原版」）" Foreground="{DynamicResource MutedBrush}" FontSize="12"/>
+        <WrapPanel x:Name="LoaderChips" Margin="0,6,0,4"/>
+        <TextBlock x:Name="LoaderHint" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10"/>
+
+        <StackPanel x:Name="LoaderVersionRow" Visibility="Collapsed" Margin="0,0,0,12">
+          <TextBlock Text="載入器版本（預設選最新的穩定版）" Foreground="{DynamicResource MutedBrush}" FontSize="12"/>
+          <ComboBox x:Name="LoaderVersionBox" Style="{StaticResource DarkComboBox}" Height="32" Margin="0,4,0,0" SelectionChanged="LoaderVersion_Changed"/>
+        </StackPanel>
+
+        <TextBlock Text="實例目錄（會建立在這裡，可添加多個）" Foreground="{DynamicResource MutedBrush}" FontSize="12"/>
+        <DockPanel Margin="0,4,0,14">
+          <Button DockPanel.Dock="Right" Content="＋ 新增目錄" Click="AddRoot_Click" Padding="12,0" Margin="8,0,0,0" Height="32" Style="{StaticResource GhostButton}"/>
+          <ComboBox x:Name="RootBox" Style="{StaticResource DarkComboBox}" Height="32" SelectionChanged="Root_Changed"/>
+        </DockPanel>
+
+        <Border Background="#FF141414" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,12">
+          <StackPanel>
+            <TextBlock Text="安裝摘要" FontWeight="Bold" Margin="0,0,0,6"/>
+            <TextBlock x:Name="SummaryText" TextWrapping="Wrap" Foreground="#FFCCCCCC"/>
+          </StackPanel>
+        </Border>
+
+        <ProgressBar x:Name="InstallBar" Height="8" Minimum="0" Maximum="100" Margin="0,0,0,6" Visibility="Collapsed"/>
+        <TextBlock x:Name="StageText" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,8"/>
+        <WrapPanel>
+          <Button x:Name="InstallButton" Content="建立並安裝" Height="38" Padding="24,0" FontWeight="Bold" Margin="0,0,8,0" Click="Install_Click"/>
+          <Button x:Name="CancelButton" Content="取消" Style="{StaticResource GhostButton}" Height="38" Padding="18,0" Margin="0,0,8,0" Visibility="Collapsed" Click="Cancel_Click"/>
+          <Button x:Name="AgainButton" Content="再建一個" Style="{StaticResource GhostButton}" Height="38" Padding="18,0" Visibility="Collapsed" Click="BackToList_Click"/>
+        </WrapPanel>
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

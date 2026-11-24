@@ -10,6 +10,7 @@ public partial class NewInstancePanel : UserControl
     readonly Action<bool> _close;
     public string InstanceName => NameBox.Text.Trim();
     public LoaderType Loader => LoaderBox.SelectedItem is LoaderType l ? l : LoaderType.Vanilla;
+    public string RootPath => (RootBox.SelectedItem as InstanceRoot)?.Path ?? InstanceRoots.Active.Path;
     public string McVersion => VerBox.SelectedItem as string ?? "";
 
     public NewInstancePanel(string defaultName, Action<bool> close)
@@ -19,7 +20,23 @@ public partial class NewInstancePanel : UserControl
         NameBox.Text = defaultName;
         LoaderBox.ItemsSource = Enum.GetValues<LoaderType>();
         LoaderBox.SelectedIndex = 0;
+        LoadRoots(InstanceRoots.Active.Path);
         Loaded += async (_, _) => { NameBox.Focus(); NameBox.SelectAll(); await LoadVersions(); };
+    }
+
+    void LoadRoots(string selectPath)
+    {
+        var all = InstanceRoots.All;
+        RootBox.ItemsSource = all;
+        RootBox.SelectedItem = all.FirstOrDefault(r => string.Equals(r.Path, selectPath, StringComparison.OrdinalIgnoreCase)) ?? all[0];
+    }
+
+    void AddRoot_Click(object s, RoutedEventArgs e)
+    {
+        var dlg = new Microsoft.Win32.OpenFolderDialog { Title = "選擇（或新建）一個資料夾當作實例目錄" };
+        if (dlg.ShowDialog(Window.GetWindow(this)) != true) return;
+        try { var r = InstanceRoots.Add(dlg.FolderName); LoadRoots(r.Path); }
+        catch (Exception ex) { MessageBox.Show(Window.GetWindow(this), ex.Message, "新增實例目錄"); }
     }
 
     async Task LoadVersions()

@@ -45,7 +45,30 @@ public partial class ContentView : UserControl
         EnvBox.ItemsSource = new[] { All, new FilterOption("client", "客戶端可用"), new FilterOption("server", "伺服器可用") };
         EnvBox.SelectedIndex = 0;
         if (inst is not null) McBox.Items.Add(inst.McVersion);
+        _ = LoadMcVersionsAsync();
         _ = RefreshFiltersAsync();
+    }
+
+    // MC 版本下拉：載入正式版清單（失敗就用內建的幾個常用版本）；不改動目前輸入框的文字
+    async Task LoadMcVersionsAsync()
+    {
+        try
+        {
+            var list = await VersionService.ListAsync(false);
+            var keep = McBox.Text;
+            McBox.Items.Clear();
+            foreach (var v in list) McBox.Items.Add(v);
+            McBox.Text = keep;
+        }
+        catch { }
+    }
+
+    /// 只管理已安裝的內容（實例設置用）：隱藏「搜尋與安裝」，直接顯示「已安裝管理」。下載請到主畫面的下載頁。
+    public void ManageOnly()
+    {
+        if (Tabs.Items.Count > 0 && Tabs.Items[0] is TabItem t0) t0.Visibility = Visibility.Collapsed;
+        Tabs.SelectedIndex = 1;
+        ReloadInstalled();
     }
 
     /// 鎖定成單一類型（實例設置頁的「模組／光影／資源包」分頁用）：隱藏類型下拉，只管這一種。
@@ -59,8 +82,8 @@ public partial class ContentView : UserControl
         }
     }
 
-    // 與 InstanceService.GetInstanceDir 相同規則：instances/<guid:N>
-    static string InstDir(Guid id) => System.IO.Path.Combine(AppPaths.Instances, id.ToString("N"));
+    // 與 InstanceService.GetInstanceDir 相同（會依「實例目錄」清單找實際位置）
+    static string InstDir(Guid id) => InstanceRoots.DirFor(id);
 
     ContentKind Kind => Enum.Parse<ContentKind>((string)((ComboBoxItem)KindBox.SelectedItem).Tag);
     ContentKind InstKind => Enum.Parse<ContentKind>((string)((ComboBoxItem)InstKindBox.SelectedItem).Tag);

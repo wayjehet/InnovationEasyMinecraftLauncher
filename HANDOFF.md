@@ -561,3 +561,99 @@ Update 16 規劃的第 1～3 階段一次做完（第 4 階段「伺服器」分
 - 三個 CS8826 警告：`MainViewModel` 的 `OnMusicVolumeChanged`、`OnSelectedInstanceChanged`、`OnSelectedAccountChanged` 參數名稱是 `v`，MVVM Toolkit 產生的宣告是 `value` → 已改成 `value`（本體一併改名）。
 - 注意：CS0246 這類「找不到型別」的錯誤會讓編譯器停在早期階段，修掉之後**可能還會冒出新的語意錯誤**（API 名稱不對、型別不符等）；請再跑一次編譯，把新的錯誤清單貼回來。
 - 手機流程：倉庫的 `build.yml`／`unzip.yml` 已改成可手動執行並可帶版本標籤發佈；編譯失敗時錯誤清單會整理在該次執行的摘要頁。
+- README 版本徽章（`README.md`、`README.en.md` 第 5 行）：兩份本來就都不是寫死的，都是 shields.io 的 `github/v/release` 動態徽章（只有 label 文字不同）。繁中與英文顯示不同版本（1.2.3 對 1.3.0）是因為 GitHub 的圖片代理與 shields 各自快取了兩個不同網址的圖；兩個網址都加上 `&cacheSeconds=300`（新網址＝新快取鍵，會立刻重抓，之後最多 5 分鐘更新）。
+
+
+## Update 34 — 啟動器版本號與設置頁預設色塊（未編譯、未實測）
+- **版本號一直是 1.2.1EF 的原因**：版本只寫在 `IEML.App.csproj`（`<Version>1.2.1</Version>`、`<InformationalVersion>1.2.1EF</InformationalVersion>`），而 Release 標籤是另外手動推的（已到 v1.3.0）；CI 編譯時沒有用標籤覆蓋，所以發佈出去的程式永遠顯示 csproj 的舊值。更糟的是：程式版本 1.2.1 低於最新 Release v1.3.0，自動更新會一直提示「有新版本」。
+- 修正：1) `build.yml`（倉庫的 `.github/workflows/build.yml`，需用網頁編輯器貼上新版）在有標籤時，把標籤傳給 `dotnet publish`：`-p:Version=<標籤開頭的數字部分>`（例如 `v1.3.1EF` → `1.3.1`）與 `-p:InformationalVersion=<去掉 v 的完整標籤>`；2) `IEML.App.csproj` 改成 `1.3.1`／`1.3.1`（本機編譯用，之後下一個要發佈的標籤請用 `v1.3.1` 或更大；`v1.3.0` 已經存在不能重發）。README 的「發佈新版本」兩個語言都改寫。
+- **設置頁「強調色預設」六個色塊顏色都一樣**（使用者截圖）：色塊原本是 `Button`，全域 `ArtButton` 樣式的範本忽略 `Background`，全部變成青色 → 改成 `Border`（有顏色、圓角、滑鼠變手指、提示色碼），點擊事件改 `MouseLeftButtonUp`。
+- 觀察（使用者截圖）：設置頁的七個顏色目前顯示 `#FFFFFF`（主要文字是 `#010000`），主要文字接近黑色導致各部分的名稱在深色背景上幾乎看不見——應該是之前試拉條留下來的（存在 `theme.json`）；按「恢復預設配色」即可還原。之後可考慮：編輯器的名稱文字不要用可被調整的 `TextBrush`，或在把文字色調到和背景太接近時給提示。
+
+
+
+## Update 35 — 配色全面生效、公開伺服器解析修正、自訂圖片改下拉、版本號（未編譯、未實測）
+- **配色只有文字生效**：文字是 `DynamicResource`，其他（背景、面板、邊框、按鈕）都是 `StaticResource`，換色時資源被換成新刷子，舊引用不會更新。→ 所有 `.xaml` 內 `WindowBg/PanelBg/LineBrush/TextBrush/MutedBrush/AccentBrush/OnAccentBrush/GlowEffect/SoftGlowEffect` 的 `StaticResource` 一律改 `DynamicResource`（共 153 處）。設置頁內程式建立的元件改用 `Dyn(...)`（`SetResourceReference`）。對話框等「每次開啟才建立」的 `FindResource` 保持不變。
+- **公開伺服器搜尋 0 筆的原因**：官方回應是 `{data:{items:[ServerSummary],page,totalPages,total}}`，位址在 `displayAddress{host,port}`／`primaryConnection`，人數與版本在 `primarySnapshot{outcome,playersOnline,playersMax,versionName}`；舊的 `Walk()` 要求同一物件同時有 name 與 address，所以永遠找不到。→ `PublicServerService` 改成依官方 OpenAPI 解析（保留舊 `Walk` 當備援），請求加上 `edition=java&limit=25`，錯誤回應會顯示 `error.message`，新增 `LastTotalPages/LastTotal` 給分頁用。待實測：實際回應欄位是否與文件一致。
+- **自訂圖片**：`SkinEditor` 改成 ComboBox（`DarkComboBox` 樣式）選部位，只顯示該部位的縮圖／選圖／清除／九宮格／三種狀態；● 表示已有圖。
+- **版本號**：`build.yml` 在 zip 內的版本沒有標籤覆蓋邏輯，而 `unzip.yml` 匯入時會刪掉 `.github`，所以倉庫的 workflow 不會更新。**必須用網頁編輯器把新的 `.github/workflows/build.yml` 貼到倉庫**。新版：標籤或手動輸入的 tag → `-p:Version=<數字>`、`-p:InformationalVersion=<完整標籤>`，並關閉 `+commit` 後綴。`csproj` 改 1.3.2。
+- 使用者回報：陶瓦聯機正常，會跳防火牆提示（符合預期）。
+
+## Update 36 — 下拉選單空白（未編譯、未實測）
+- **深色下拉看不到選中的字**：`Theme.xaml` 的 `DarkComboBox` 範本的 `ContentPresenter` 沒綁 `ContentTemplateSelector`／`ContentStringFormat`；`DisplayMemberPath` 是靠 `ItemTemplateSelector` 實作的，所以排序／分類／載入器／執行端（都用 DisplayMemberPath）選中後一片空白。→ 補上 `ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"` 與 `ContentStringFormat`。
+- **白色空下拉（MC 版本）**：原本 `Style="{x:Null}"` 還原成系統白底，且沒有任何項目。→ 新增深色可輸入樣式 `DarkEditableComboBox`（`PART_EditableTextBox`＋箭頭＋彈出清單），`McBox`、`LoaderVerBox` 改用；`ContentView.LoadMcVersionsAsync()` 用 `VersionService.ListAsync(false)` 填入正式版清單（離線退回內建清單），不改目前輸入框文字。
+- 待實測：1) 四個篩選下拉顯示「相關度／全部…」 2) MC 版本可輸入也可展開選 3) 實例設置的載入器版本下拉外觀。
+
+## Update 37 — 啟動器圖示（未編譯、未實測）
+- 使用者提供的 1080×1080 青色「ZE」標誌 → 四周加 8% 黑邊後縮成 256px，輸出 `src/IEML.App/app.ico`（16/24/32/48/64/128/256 多尺寸）；`Assets/app_icon.png` 為預覽用副本（程式沒用到）。
+- `IEML.App.csproj`：`<ApplicationIcon>app.ico</ApplicationIcon>`（exe／檔案總管圖示）＋ `<Resource Include="app.ico"/>`；`MainWindow.xaml` 加 `Icon="app.ico"`（視窗左上角與工作列）。
+- 注意：單檔發佈後 Windows 檔案總管有時會快取舊圖示，換名稱複製一份或重開檔案總管即可看到新的。
+
+## Update 38 — 多個實例目錄、實例設置只管理已安裝內容（未編譯、未實測）
+- **實例目錄**：新檔 `IEML.Core/Services/InstanceRoots.cs`（`roots.json` 存 `Extra` 目錄清單與 `Active`）。預設目錄 `%AppData%\InnovationEasyLauncher\instances` 永遠在、不能移除。`InstanceService.GetInstanceDir` 改成 `InstanceRoots.DirFor(id)`：依序在每個目錄找 `<guid:N>`，找不到（新實例）就用「使用中」目錄；`ListAsync` 掃描所有目錄（不存在的目錄略過、重複 Id 去重）。`IInstanceService` 簽章沒動。
+- **UI**：1) 新增實例面板多一個「實例目錄」下拉＋「＋ 新增目錄」（`OpenFolderDialog`，.NET 8 內建）；按「建立」時 `SetActive` 選的目錄（之後預設）。2) 「啟動器設定」新增「實例目錄」區：列出每個目錄（名稱、路徑、使用中標記）、設為使用中／開啟／移除（移除只是不再掃描，不刪檔），＋新增；變更後呼叫 `MainViewModel.RefreshInstancesPublicAsync()` 重新整理。
+- 改掉寫死 `AppPaths.Instances` 的地方：`ContentView.InstDir`、`InstanceSettingsPage`（換載入器檢查 mods）。
+- **實例設置的模組／光影／資源包分頁**：新增 `ContentView.ManageOnly()`——隱藏「搜尋與安裝」，只留「已安裝管理」（啟用/停用、刪除、檢查更新、開啟資料夾、拖檔匯入）。搜尋與下載留在主畫面的下載頁。
+- 待實測：1) 新增目錄後實例清單出現該目錄內既有實例 2) 在外接目錄建立實例並啟動（`MinecraftPath` 用實際目錄）3) 移除目錄後實例消失、檔案還在 4) 目錄不存在（硬碟沒插）不報錯 5) 實例設置分頁只剩已安裝管理。
+- 限制：實例不能在目錄之間搬移（要搬請手動搬資料夾再重開）；Mods/地圖等其他功能都透過 `GetInstanceDir`，應該自動跟著實際位置。
+
+## Update 39 — 右欄按鈕再按一次收回頁面（未編譯、未實測）
+- `MainWindow.xaml.cs`：新增 `_navKey`（目前覆蓋頁是哪個右欄按鈕開的）與 `ToggleNav(key)`。設置／下載／P2P／更多／音樂五個 `*Stage_Click` 開頭都呼叫它：同一個按鈕、覆蓋頁還開著 → 清掉返回堆疊後走 `StageBack_Click` 整個收回；按別的按鈕則直接切換。覆蓋頁遮住左＋中欄，所以頁面開著時只有右欄按鈕按得到，不會有「別處開的頁面」讓 `_navKey` 過期。
+- 順手修競態：`_closeToken`——淡出關閉途中又開新頁面時，舊的淡出完成回呼不再把新頁面關掉（`ShowStage` 會取消待關閉）。實例設置頁的關閉回呼同樣處理。
+- 待實測：1) 設置／下載／P2P／更多／音樂各按兩次會開→關 2) 下載→進 CurseForge 子頁→再按「下載」會整個收回 3) 開著設置時按下載會切換而不是關閉 4) 快速連按不會閃退或卡住（淡出途中再開）。
+
+
+## Update 40 — 小控制項的過渡動畫（未編譯、未實測）
+- **缺口**：按鈕、右欄、卡片本來就有動畫，但其他小控制項都是瞬間切換（勾選、列表、捲軸、滑桿、輸入框焦點、下拉的滑過／展開、右鍵選單）。
+- **做法**：不去動共用的刷子（共用刷子會被凍結，也不能對它做顏色動畫），而是在控制項上**疊一層「滑過／選取／焦點」的圖層**，只對它的 `Opacity`／`ScaleTransform` 做動畫；顏色全部用 `DynamicResource`，配色改了會即時跟著變。時間 0.1–0.26 秒，`CubicEase`／`BackEase`（彈出效果）。
+- **新檔 `Controls.xaml`**（`App.xaml` 在 `Theme.xaml` 之後合併）：
+  - `CheckBox`：方框淡入青色底、勾號彈性縮放跳出（`BackEase`）、滑過有光圈、按下微縮。
+  - `ListBoxItem`：滑過淡入白色底、選取淡入青色底並跳出左側亮條（`ScaleY` 彈出）。
+  - `ScrollBar`（垂直＋水平）：細 11px、無箭頭，滑塊平時半透明、滑過／拖動淡入變亮。
+  - `Slider`：青色已填軌道、圓形滑塊（有柔光），滑過放大 1.25 倍、拖動放大 1.5 倍。ThemeEditor 的 R／G／B 拉條與音樂音量都會套用。
+- **改現有檔**：
+  - `Theme.xaml`：`ArtButton` 發光改成獨立圖層（`GlowLayer`）淡入／淡出（原本是瞬間套用 `GlowEffect`；有換皮圖片時 `HasImage` 會隱藏這一層）；`GhostButton` 滑過的青色邊框改成光圈淡入；`DarkComboBox` 外框光圈淡入、展開時箭頭旋轉 180°、清單 `PopupAnimation="Fade"`；`DarkComboBoxItem`、`MenuItem` 的高亮底色改成淡入淡出。
+  - `PageStyles.xaml`：`TextBox`／`PasswordBox` 焦點光圈改成淡入（範本根改成 `Grid`＋`Ring`）；移除會蓋掉全域 `CheckBox` 樣式的區域樣式（同樣移除 `ContentView.xaml`、`DownloadStageControl.xaml` 裡的）。
+- **還沒做**：`CardButton`／`NavButton` 的發光（`SoftGlowEffect`）仍是瞬間套用、`TabItem` 選取底線滑動、`DarkEditableComboBox` 的過渡、`RadioButton`／`ToggleButton`。
+- **待實測／可能的問題**：1) `Controls.xaml` 能否載入（樣式找不到資源、`Command` 靜態引用）；2) 預設的 `ScrollBar`／`Slider`／`ListBoxItem` 是全域隱含樣式，會影響所有頁面，確認 `ScrollViewer`、各清單的選取外觀沒有跑版（特別是 `ListBoxItem` 的內邊距與背景）；3) 勾選框載入時，已勾選的會播一次勾選動畫；4) 想調快慢：在 `Controls.xaml`／`Theme.xaml` 搜尋 `0:0:0.` 即可。
+
+
+## Update 41 — 下載中心「遊戲」分頁重構：選版本 → 設定 → 真的安裝（未編譯、未實測）
+- **舊版的問題**：一個頁面塞了 5 個輸入／下拉（可編輯的版本下拉、載入器、載入器版本、「安裝到實例」、快照勾選）＋摘要；「載入器版本」其實只是一個假欄位（永遠是「自動使用最新穩定版」）；「安裝到實例」放錯分頁；最嚴重的是**「建立實例」只寫一個設定檔，進度條直接跳 100%，遊戲檔案其實要等第一次啟動才下載**。
+- **新設計（新檔 `GameInstallView.xaml(.cs)`，取代 `DownloadStageControl` 的 `GamePanel`；`x:Name` 仍是 `GamePanel`，分頁切換邏輯不用改）**：
+  1. **步驟 1 選版本**：搜尋框（輸入 `1.20`、`24w` 即時篩選）＋「正式版／快照／舊版」三個分類鈕＋版本清單（版本號、類型、發佈日期，新→舊）。點一個版本進入步驟 2。
+  2. **步驟 2 設定並安裝**：「← 換版本」；實例名稱（依版本與載入器自動命名，例如 `Minecraft 1.21.1`、`Fabric 1.21.1`；使用者自己改過就不再覆蓋；重名自動加 `(2)`）；載入器用按鈕選（原版／Fabric／Quilt／NeoForge／Forge）——**進入時並行查詢四種載入器在這個 MC 版本有沒有可用版本，沒有的標灰**；載入器版本下拉（只列真的存在的版本，預設選最新穩定版；原版時隱藏）；安裝摘要與實例目錄；「建立並安裝」。
+  3. **安裝**：先建立實例（立刻通知主畫面刷新），再**真的下載**遊戲檔案、載入器與所需檔案，有進度條與階段文字（含百分比），可「取消」。取消或預先下載失敗時，實例仍已建立，第一次啟動會再補下載（畫面上會明說）。完成後出現「再建一個」。
+- **Core 新增**：`GameInstaller`（`GameInstaller.cs`，`PrepareAsync(instanceId, progress, ct)`：檢查 Java → `InstallAsync(MC 版本)`（Forge／NeoForge 安裝程式要先有原版）→ `LoaderService.EnsureInstalledAsync` → `InstallAsync(載入器 versionId)`。邏輯與 `LaunchService` 的安裝部分一致，但不需要帳號、不啟動遊戲；沿用 `SharedCache.Apply`）。`VersionService.ListDetailedAsync()` ＋ `GameVersionInfo`（`Id`／`Type`／`Released`，日期用反射讀 CmlLib 的 `ReleaseTime`，不綁死型別；離線退回內建常用版本）。`ILaunchService`／`Contracts.cs` 沒動。
+- **`DownloadStageControl` 的變動**：移除舊遊戲分頁的程式（`LoadVersionsAsync`、`UpdateSummary`、`Create_Click`、`UpdateLoaderVersionHint` 等）；`InstanceBox` 改成一個**不顯示**的 `ComboBox`，只負責和內容分頁的「安裝到」（`TargetBox`）同步、並給地圖與搜尋當「目前安裝目標」；新增事件 `InstanceCreated`，`MainWindow` 訂閱後呼叫 `Vm.RefreshInstancesPublicAsync()`。`GamePanel` 與 `ContentPanel` 現在包在同一個 `Grid` 裡（避免 `DockPanel` 對非最後子元素預設靠左、不會填滿的問題）。
+- **沒做／已知限制**：實例目錄（`InstanceRoots`）只顯示目前使用中的那個，沒有在這裡切換（要換請用主畫面的「新增實例」面板）；快照與舊版沒有載入器版本可選時只能建立原版；整合包、地圖、內容搜尋維持原樣。
+- **待實測**：1) 能否編譯（`GameInstallView` 的 tuple 與 `Task.WhenAll`、`CmlLib` 的 `InstallAsync(versionId)` 對載入器版本 id 是否可用）；2) 步驟 1 篩選與點選、換分類；3) 步驟 2 載入器標灰是否正確（尤其網路慢時的等待）；4) 預先安裝的進度與取消；5) Forge／NeoForge 安裝完成後第一次啟動不再重複下載；6) 建立後主畫面實例清單立即出現新實例。
+
+
+## Update 42 — 建立實例：新增「愚人節」版本分類（未編譯、未實測）
+- 「遊戲」分頁步驟 1 的分類鈕多了**「愚人節」**（正式版／快照／愚人節／舊版）。官方版本清單沒有愚人節這個類型（它們全是 `snapshot`），所以在 `GameVersionInfo`（`VersionService.cs`）用**名單＋命名規則**辨認：
+  - 名單：`15w14a`、`1.RV-Pre1`、`3D Shareware v1.34`、`20w14infinite`、`22w13oneBlockAtATime`、`23w13a_or_b`、`24w14potato`、`25w14craftmine`。
+  - 規則：非正式版，且名稱符合「第 13／14 週、後綴不只一個字母」（`^\d{2}w1[34][a-z]{2,}`）或含 `_or_`——正常快照（`24w14a`）與測試版（Combat Test）不會被誤判；之後新的愚人節版本（例如 `NNw14xxx`）多半會自動歸進來。漏掉或誤判就把版本號加進（或移出）`AprilFoolsIds`。
+- 愚人節版本只出現在「愚人節」分類，不再混進「快照」；`TypeText` 顯示「愚人節版本」。選到愚人節分類時，清單下方會提醒「愚人節版本是玩笑版本，通常不能搭配載入器或模組」；載入器本來就會因為查不到版本而標灰，只能建立原版。
+- 限制：離線時版本清單退回內建的常用正式版，沒有愚人節版本（畫面上會說明）；有空格的版本名（`3D Shareware v1.34`）能否正常下載安裝，要實測。
+
+
+
+## Update 43 — 補完四個缺口：啟動進度條、遊戲頁切換實例目錄、發光／分頁底線動畫、詳情頁（未編譯、未實測）
+1. **頁面蓋住左欄時看不到啟動進度條**：`MainWindow.xaml` 覆蓋頁內層 Grid 新增第 4 列 `StageStatusBar`（`Border` ＋ 狀態文字 ＋ `DarkProgress`，綁 `Status`／`ProgressPercent`）。預設 Collapsed，`IsBusy`（啟動、下載更新）為 true 時才顯示。
+2. **「遊戲」頁可切換實例目錄**：`GameInstallView` 步驟 2 取代舊的 `RootText`，改成「實例目錄」下拉（`RootBox`，`InstanceRoots.All`）＋「＋ 新增目錄」（`OpenFolderDialog` → `InstanceRoots.Add`）；安裝摘要多一行「建立位置」；按「建立並安裝」前 `InstanceRoots.SetActive(選的目錄)`，之後 `GameInstaller` 用 `GetInstanceDir` 會找到實際位置。
+3. **動畫**：`CardButton` 的發光改成獨立 `GlowRing` 圖層（細邊框＋`SoftGlowEffect`），滑過用 `Opacity` 淡入 0.16 秒／淡出 0.24 秒，移除原本滑過時瞬間設定 `Root.Effect` 的 Setter（有自訂圖片的卡片也一樣會有一圈發光邊框）。`DarkTabItem` 的選取底線改成獨立 `Underline`（`ScaleX` 從 0.2 長到 1＋淡入，取消選取時收回），不再瞬間換 `BorderBrush`（`Bd` 的 `BorderThickness` 保留，版面不變）。`NavButton` 本來就沒有發光效果（只有左側亮條與縮放，已是動畫），沒動。
+4. **專案詳情頁**：
+   - **前置模組鎖版本**：每個前置（必要／可選）一列：名稱＋版本下拉（預設「自動（最新相容版）」，展開時才查該專案的版本清單；可選前置一指定版本會自動勾選）。安裝時把「專案 id → 版本 id／CurseForge 檔案 id」傳給 `IVersionSource.InstallVersionAsync(..., ct, pinnedVersions)`（新增的可選參數，預設 null）。`ModrinthService.InstallProject`、`CurseForgeService.InstallProjectAsync` 新增 `pinned` 參數：有指定就取該版本／檔案（`version/{id}`、`mods/{pid}/files/{fid}`），沒有就維持原本「最新相容版」邏輯；遞迴前置也會帶著。
+   - **專案圖示**：標題左邊顯示 `ContentHit.IconUrl`（只接受 https，失敗就不顯示）。
+   - **長說明**：`IVersionSource.GetLongDescriptionAsync`（介面預設回傳 null）；Modrinth 取 `project/{id}` 的 `body`（Markdown），CurseForge 取 `mods/{id}/description`（HTML），統一用 `DescriptionText.Clean` 轉成純文字（最多約 2000 字）；「▸ 專案說明」按鈕展開，高度上限 150，可捲動。
+- **待實測**：1) 專案能編譯（`file ??= throw`、介面預設方法、`ModrinthService.InstallProject` 的 `using var keepDoc`）；2) 啟動遊戲時開著任何頁面，底部出現進度列、完成後消失；3) 遊戲頁選另一個目錄安裝，實例出現在該目錄；4) 卡片滑過發光淡入淡出、分頁底線從中間長出；5) 詳情頁指定前置版本後，資料夾裡裝的是指定的那一版；6) 說明文字轉換的可讀性（特別是含很多 HTML 的 CurseForge 專案）。
+- 限制：指定的前置版本不會檢查和實例 MC 版本／載入器是否相容（下拉會依實例篩選，但直接指定就照你的）；`CurseForge` 前置版本下拉是「最多 150 個檔案」的上限。
+
+## Update 44 — build.yml 換成加強版
+- `.github/workflows/build.yml` 採用使用者提供的版本（含 Update 35 的版本號邏輯）：標籤改用環境變數傳入（不直接把 `${{ }}` 內插進腳本，較安全）；`dotnet publish` 的輸出另存 `build.log` 並在失敗時 `exit`；新增「Summarize build errors」步驟——編譯失敗時把所有 `: error ` 行去重後（最多 200 條）寫進這次執行的「摘要」頁，手機上可直接複製。
+- 注意：`unzip.yml` 匯入時仍會刪掉 `.github`，倉庫裡的 workflow 要用網頁編輯器貼。
+
+## Update 45 — 移除所有「Beta」標示（未編譯、未實測）
+- 視窗標題、主畫面標誌旁的 Beta 徽章、啟動器設定「關於」的版本文字與橘色「Beta 測試版」提示（改成一句灰色的「遇到問題請附上遊戲日誌回報」）、`AppInfo.Version` 讀不到時的備援值（`0.1.0-beta` → `1.0.0`）、Modrinth 的 User-Agent、兩份 README 的狀態徽章與說明，全部去掉 Beta。
+- 沒動的：`VersionService` 裡的「舊版 Beta／Alpha」是 Minecraft 的舊版本類型名稱，不是啟動器的狀態。
