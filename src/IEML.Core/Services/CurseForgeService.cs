@@ -196,7 +196,7 @@ public partial class CurseForgeService
             file = new PickedFile(pd, pd.RootElement.GetProperty("data"));
         }
         else file = await PickFileAsync(projectId, cfg, kind, ct);
-        file ??= throw new InvalidOperationException($"找不到適用於 {cfg.McVersion}{(kind == ContentKind.Mod ? " / " + cfg.Loader : "")} 的檔案（專案 {projectId}）");
+        if (file is null) throw new InvalidOperationException($"找不到適用於 {cfg.McVersion}{(kind == ContentKind.Mod ? " / " + cfg.Loader : "")} 的檔案（專案 {projectId}）");
         using var keep = file.Doc;
         var f = file.File;
 
