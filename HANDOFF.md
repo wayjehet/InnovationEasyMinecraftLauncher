@@ -657,3 +657,48 @@ Update 16 規劃的第 1～3 階段一次做完（第 4 階段「伺服器」分
 ## Update 45 — 移除所有「Beta」標示（未編譯、未實測）
 - 視窗標題、主畫面標誌旁的 Beta 徽章、啟動器設定「關於」的版本文字與橘色「Beta 測試版」提示（改成一句灰色的「遇到問題請附上遊戲日誌回報」）、`AppInfo.Version` 讀不到時的備援值（`0.1.0-beta` → `1.0.0`）、Modrinth 的 User-Agent、兩份 README 的狀態徽章與說明，全部去掉 Beta。
 - 沒動的：`VersionService` 裡的「舊版 Beta／Alpha」是 Minecraft 的舊版本類型名稱，不是啟動器的狀態。
+
+
+## Update 46 — 「更多」新增小遊戲「地城探險」（像素小肉鴿；未編譯、未實測）
+- 之前另一個對話寫到一半被用量限制打斷（`RoguelikeGame.cs` 沒存下來），這裡重寫完成。**「更多」頁預留的那一格**現在是「地城探險」，點下去用 `ShowPage(push: true)` 開新頁，「← 返回」回到更多。
+- **新檔**：`RoguelikeGame.cs`（純邏輯，不碰 UI）、`RoguelikePage.cs`（`PixelArt` 8×8 像素小圖、`RoguelikeView` 畫面、`RoguelikePage` 操作頁；**純程式碼建 UI，沒有 XAML**）。
+- **玩法**：15×11 地圖，5 層，回合制。方向鍵／WASD 移動，撞到怪物＝攻擊；空白＝等待；H＝喝藥水（+6 生命，花一回合）；R＝重來；下方也有按鈕。走到樓梯下樓（回復 3 生命）；第 5 層沒有樓梯，打倒**凋零骷髏王**就通關。每次進層重新隨機生成（4～6 個房間＋走廊）。
+- **怪物**：殭屍（慢，每兩回合動一次）、骷髏（同列同行 5 格內直線就射箭，每兩回合一箭，傷害 2）、苦力怕（靠到周圍一格先「嘶嘶」蓄力，下一回合爆炸 5 傷害；躲開或先打倒；蓄力時閃白光）、凋零骷髏王（24 血，靠近時先舉劍一回合、下一回合才揮下 4 傷害，退開就能躲；每 6 回合召喚一隻骷髏）。傷害都會被防禦減免，最少 1。
+- **道具**（撿到即生效，藥水進背包）：藥水（每層至少一瓶）、劍（攻擊 +1，上限約 5）、護甲（防禦 +1，上限 3）、金蘋果（最大生命 +3 並補滿）。起手：12 生命、攻擊 2、1 瓶藥水。
+- **畫面**：`RoguelikeView : FrameworkElement`，`OnRender` 用 `DrawImage` 畫預先做好的凍結 `BitmapSource`（最近鄰縮放），放在 `Viewbox` 裡自動縮放；受傷時整個畫面閃一層紅；怪物血條；結束畫面（倒下／通關）顯示層數與擊殺，並記「本次最高層數」（只在這次執行期間，不存檔）。
+- **沒做**：存檔、排行榜、視野／迷霧、音效、行動裝置觸控以外的操作優化。難度沒有實際玩過，數值（怪物血量、傷害、道具機率）都集中在 `RoguelikeGame.cs` 的 `MakeMob`／`RollKind`／`RollLoot`／`EnemyTurn`／`BuildFloor`，之後直接調。
+- 待實測：能否編譯（`PixelArt.Make` 的目標型別 `new() {…}`、`RelayCommand(() => ShowPage(...))` 轉 `Action`、`FormattedText` 的字型）；鍵盤焦點（開頁後要能直接按方向鍵，點按鈕後焦點仍在頁面，按鈕設了 `Focusable=false`）；各層是否都生成得出樓梯／王、玩家出生處是否永遠和樓梯連通（走廊依序連接各房間，理論上連通）；第 5 層的王與召喚是否過難。
+
+- **Update 46 補充：玩家頭像**。目前選的帳號是**正版（Microsoft）**且有 UUID 時，地城探險的玩家改用自己的皮膚頭像（`https://mc-heads.net/avatar/{uuid}/32`，與主畫面頭像同一個第三方來源，32px＝8×8 放大 4 倍剛好一格，加黑框）；**離線帳號、沒網路、服務失敗、還沒載入完**都維持預設像素小人（不會報錯）。`RoguelikePage(Account? account)`，入口傳 `Vm.SelectedAccount`；頭像在頁面載入後非同步抓，載好才換，同一個 UUID 本次執行內快取（`HeadCache`）。只在開頁時讀目前帳號，遊戲中途切帳號不會即時更新。
+
+
+## Update 47 — 「地城探險」改成即時彈幕肉鴿（類 Brotato；未編譯、未實測）
+Update 46 的回合制地城整個換掉（`RoguelikeGame.cs`、`RoguelikePage.cs` 全部重寫；`PixelArt` 的 8×8 像素圖保留給敵人與玩家用，道具圖已不再使用）。入口還是「更多 → 地城探險」。
+- **玩法**：場地 640×400（邏輯像素，`Viewbox` 自動縮放）。**WASD／方向鍵移動，自動瞄準最近的敵人射箭**；P 暫停、R 重來。共 10 波，每波 `20 + (波數-1)×2.5` 秒（上限 45 秒），撐過就進**商店**，最後第 10 波要**擊敗凋零骷髏王**才通關。敵人出生前會先在地上閃紅色 X（約 0.8 秒）。
+- **敵人**：殭屍（追著撞，接觸傷害，有 0.8 秒冷卻）；骷髏（保持距離射箭，第 6 波起三連發）；苦力怕（衝向玩家，靠近 36 以內停住閃白光 0.55 秒後爆炸，範圍 62）；**王**（450 血，一圈彈幕／瞄準五連發／偏移一圈＋三連發輪流，血量低於一半射更快、環更密；每 9 秒召喚 3 隻殭屍；接觸傷害）。數值隨波數成長（血量 ×(1+0.4×(波數-1))）。
+- **玩家**：20 生命、傷害 6、射速 2／秒、射程 230、移速 150；暴擊 10%（傷害 ×2、金色箭）；被打後 0.4 秒無敵（閃爍）；護甲公式 `傷害×15/(15+護甲)`，最少 1。
+- **材料與商店**：擊殺掉綠色材料（靠近自動吸、波結束時全部自動收走）。每波結束回復 30% 最大生命，商店隨機 4 項強化（傷害／射速／射程／最大生命／移速／護甲／拾取範圍／再生／重弩／疾風弓／龜殼／雙重射擊（最多 4 支）／穿透箭（最多 4）），價格隨波數 +12%／波；可「重抽」（費用 2＋波數/2，每次 +1）。部分道具有代價（例如重弩降射速、龜殼降移速）。
+- **玩家頭像**：維持 Update 46 補充的行為（正版帳號用 mc-heads.net 頭像加黑框，其餘預設小人）。
+- **技術**：`RoguelikeGame` 是純模擬（`Update(dt, ix, iy)`，不碰 UI）；`RoguelikeView : FrameworkElement` 每幀 `InvalidateVisual`，用 `DrawingContext` 畫；`RoguelikePage` 在 `Loaded` 訂閱 `CompositionTarget.Rendering`、`Unloaded` 取消訂閱（離開頁面遊戲就停），`dt` 上限 0.05 秒；商店與結束畫面用 WPF 控制項疊在上面（按鈕 `Focusable=false`，鍵盤焦點留在頁面）。
+- **沒做**：存檔／排行榜、音效、多種武器（目前只有弓，靠商店疊強化）、角色選擇、觸控操作。難度完全沒實際玩過，數值集中在 `RoguelikeGame.cs`（`MakeEnemy`、`RollKind`、`Director`、`BossAct`、`BuildOffers`）。
+- 待實測：能否編譯（`Freeze<T>` 泛型輔助、`RoguelikeView` 為 internal 但被 public 頁面的私有欄位使用）；進頁面後方向鍵能直接移動（焦點）；離開再進頁面不會有兩個遊戲迴圈；第 10 波王的彈幕是否太難、1～9 波是否太簡單；商店按鈕按下後畫面更新與材料扣除。
+
+
+## Update 48 — 插件系統原型（Jint 沙盒；未編譯、未實測）
+- **入口**：「更多」頁新增「插件」（格子改 2×4，`Rows = 4`）→ `PluginsPage`：插件清單、「啟用」開關、逐項權限勾選（⚠ 標示 `token.read`／`net.http`）、插件提供的頁面按鈕、最近紀錄（含被拒絕的呼叫）。插件資料夾 `%AppData%\InnovationEasyLauncher\plugins\`，第一次會自動放 `hello-sample`（預設停用）。完整文件：`docs/PLUGINS.md`。
+- **新增套件**：`IEML.App.csproj` 加 `Jint 4.*`（BSD-2；純 .NET）。第一次編譯請確認 Jint 4.x 的 API：`new Engine(o => { o.Strict(); o.TimeoutInterval(); o.LimitMemory(); o.LimitRecursion(); o.MaxStatements(); })`、`engine.SetValue`、`engine.Execute`、`engine.Invoke(name, args)`、`JsValue.IsNull()/IsUndefined()`、`Engine.Dispose()`。
+- **新檔**：Core：`Plugins/PluginModel.cs`（`Perm` 權限常數與說明、`PluginManifest`＋`Validate`、`PluginState`、`PluginStore`：`plugins.json`、`Discover`，**manifest.id 必須等於資料夾名**）、`Plugins/PluginGate.cs`（★唯一權限閘口★）。App：`PluginRuntime.cs`（每個插件一個 Jint 引擎、`Host`、`Handle`、JS 前置腳本 `Prelude`）、`PluginManager.cs`（載入／啟停／授權／事件／能力實作／範例插件）、`PluginViews.cs`（`PluginPageView` 把 JSON 元件樹畫成控制項；`PluginsPage` 管理頁）。
+- **沙盒設計**：引擎沒有開 CLR（`AllowClr` 不呼叫）、沒有檔案／網路／程序。唯一出口 `__host(method, json)`，**每次呼叫都先 `PluginGate.Authorize`**（預設拒絕：未啟用、方法不在表中、權限沒宣告或沒授權都拒絕）；失敗會變成 JS 的 `Error`（`{"__error":…}`）。`delete g.__host` 只是美觀，真正的保護是閘口。權限＝manifest 宣告 ∩ 使用者勾選；插件更新後新增的權限不會自動授權；撤銷立即生效。限制：2 秒逾時、32 MB、遞迴 120、30 萬條陳述式；彈窗標題加「插件「名稱」：」前綴；`net.http` 只允許 HTTPS＋manifest 網域、不跟轉址、≤ 1 MB、10 秒。
+- **頁面**：宣告式，插件回傳 JSON 元件樹（heading／text／button／input／checkbox／list／row／column／separator；深度 ≤ 8、≤ 500 個、文字 ≤ 2000 字），不能碰 WPF 物件。按鈕 → `onAction(action, values)` → 重新 `render(values)`。
+- **事件**：`launcher.ready`（`MainWindow` Loaded 之後）、`instance.launch`（`MainViewModel.RunLaunch` 開頭，只給 name／mcVersion／loader）。要有 `hooks` 權限才會收到。
+- **VM**：新增 `GetSelectedAccountToken()`（背景執行緒取得、最多等 10 秒，離線帳號回傳 null）給 `token.read` 用。⚠ 若剛好需要互動登入，視窗可能要等逾時後才出現。
+- **已知限制／待處理**：`net.http`、`token.read` 會阻塞介面執行緒（最多 12／10 秒）；沒防 DNS 重新綁定；沒有插件簽章／市集；`ui.confirm` 等彈窗共用 `Dialogs`（同時只有一個對話框，後開的會取消先開的）；插件資料（`data.json`）存在插件資料夾內，插件資料夾若被別的程式竄改不在防護範圍。
+- 待實測：1) 能否編譯（Jint 版本、`JsonNode` 的隱含轉換、`PluginRuntime.Handle` 內 switch 區塊的區域函式）；2) 範例插件：啟用 → 勾權限 → 開頁面 → 輸入名字按「打招呼」→ 提示條 → 「問個問題」彈窗 → 計數持久化；3) 撤銷 `ui.toast` 後再按按鈕 → 紀錄出現「被拒絕」且不會當掉；4) 手寫無窮迴圈的插件 → 2 秒後中止、顯示「執行錯誤」；5) manifest 的 id 與資料夾名不同 → 顯示「無法載入」；6) 啟動實例時範例插件收到事件。
+
+
+## Update 49 — 修正：啟動時出現「找不到 ShimmerTt 名稱」（GitHub issue #2；未編譯、未實測）
+- **症狀**（使用者回報）：啟動器開啟時跳出「發生未預期的錯誤，但啟動器會繼續執行。無法在 System.Windows.Controls.ControlTemplate 的名稱範圍內找到 'ShimmerTt' 名稱」，並寫入 crash.log。
+- **原因**：Update 19 的進度條流光（`Theme.xaml` 的 `DarkProgress`）用 `ControlTemplate.Triggers` 裡的 `EventTrigger`（Loaded）啟動 Storyboard，目標寫成範本內有名字的 **Freezable**（`<TranslateTransform x:Name="ShimmerTt">`）。這種寫法在 EventTrigger 下找不到名稱，進度條一載入就丟例外（全域例外處理接住所以沒有直接關閉，但流光動畫不會動）。
+- **修正**：目標改成有名字的 **UIElement**（`Shimmer` 這個 Border），用屬性路徑 `(UIElement.RenderTransform).(TranslateTransform.X)` 動畫，並移除 transform 上的 `x:Name`。
+- **其他同名寫法**：`Theme.xaml` 的 `ArtButton`／`CardButton`（`Tt`、`Sc`）與 `NavButton`（`NavSc`）也是以名稱指定 Freezable 目標，但它們用的是**屬性觸發器**（`IsMouseOver`／`IsPressed` 的 `EnterActions`／`ExitActions`），機制不同，`Controls.xaml` 裡也有同樣寫法；滑過按鈕若也出現「找不到名稱」，改成同樣的屬性路徑寫法即可（例如 `Root` 的 `(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)`）。
+- 待實測：啟動不再跳錯誤；進度條在有進度時流光掃過；滑過按鈕、右欄圖示動畫正常。建議發 1.3.3 修正版並回覆 issue。

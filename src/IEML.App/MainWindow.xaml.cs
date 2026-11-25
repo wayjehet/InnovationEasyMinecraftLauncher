@@ -19,6 +19,8 @@ public partial class MainWindow : Window
         SkinManager.Instance.Changed += ApplyLogo;
         ApplyLogo();
         LoadTheme();
+        Plugins = new PluginManager(mainVm);
+        Loaded += (_, _) => { Plugins.LoadAll(); Plugins.Emit("launcher.ready", null); };
         Loaded += (_, _) => Motion.Float(EmptyHint);
         PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape && _modalClose is not null) { _modalClose(false); e.Handled = true; } };
         mainVm.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(MainViewModel.Status)) ToastForStatus(mainVm.Status); };
@@ -57,6 +59,9 @@ public partial class MainWindow : Window
         Motion.FadeSlideIn(ModalBox, 0, 160);
         return tcs.Task;
     }
+
+    /// 插件系統（沙盒）：掃描、啟停、授權、事件。
+    public PluginManager Plugins { get; }
 
     int _toastId;
     public void ShowToast(string text, bool error = false)
@@ -361,9 +366,9 @@ public partial class MainWindow : Window
     void MoreStage_Click(object sender, RoutedEventArgs e)
     {
         if (ToggleNav("more")) return;
-        ShowStage("更多工具", "伺服器、遊戲日誌、種子地圖、地圖與帳號");
+        ShowStage("更多工具", "伺服器、遊戲日誌、種子地圖、地圖、帳號與小遊戲");
         // 固定 2 欄 × 3 列，順序固定，不隨視窗大小跑位；最後一格預留
-        var grid = new System.Windows.Controls.Primitives.UniformGrid { Columns = 2, Rows = 3, Height = 3 * 84, VerticalAlignment = VerticalAlignment.Top };
+        var grid = new System.Windows.Controls.Primitives.UniformGrid { Columns = 2, Rows = 4, Height = 4 * 84, VerticalAlignment = VerticalAlignment.Top };
         void Add(string t, string d, ICommand cmd)
         {
             var b = new Button
@@ -387,7 +392,12 @@ public partial class MainWindow : Window
         Add("種子地圖", "結構與群系座標查詢", Vm.OpenSeedMapCommand);
         Add("地圖管理", "匯入、備份與瀏覽地圖", Vm.OpenMapsCommand);
         Add("帳號管理", "離線／Microsoft 帳號與重新命名", Vm.OpenAccountsCommand);
-        grid.Children.Add(new Border());                       // 預留格
+        Add("地城探險", "即時彈幕肉鴿：撐過 10 波、挑戰凋零骷髏王",
+            new CommunityToolkit.Mvvm.Input.RelayCommand(() =>
+                ShowPage("地城探險", "WASD／方向鍵移動，自動射擊，P 暫停，R 重來", new RoguelikePage(Vm.SelectedAccount), push: true)));
+        Add("插件", "沙盒插件：頁面、彈窗、功能接入（預設全部停用）",
+            new CommunityToolkit.Mvvm.Input.RelayCommand(() =>
+                ShowPage("插件", "每個插件預設停用、沒有權限，逐項授權", new PluginsPage(Plugins), push: true)));
         StageScroll.Visibility = Visibility.Collapsed;
         StageHost.Visibility = Visibility.Visible;
         StageHost.Content = grid;

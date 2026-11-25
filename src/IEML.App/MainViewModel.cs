@@ -322,6 +322,16 @@ public partial class MainViewModel : ObservableObject
         if (saved && server is not null) await RunLaunch(inst.Id, SelectedAccount?.Id, server);   // 伺服器分頁的「啟動並加入」
     }
 
+    /// 給插件系統（token.read 權限）用：目前選的正版帳號的存取權杖；離線帳號、失敗或逾時回傳 null。
+    /// 在背景執行緒取得、最多等 10 秒（若剛好需要互動登入，視窗可能要等逾時後才出現——原型的限制）。
+    public string? GetSelectedAccountToken()
+    {
+        var acc = SelectedAccount;
+        if (acc is null || acc.Type != AccountType.Microsoft) return null;
+        var task = Task.Run(() => _accounts.GetSessionAsync(acc.Id));
+        return task.Wait(TimeSpan.FromSeconds(10)) ? task.Result.AccessToken : null;
+    }
+
     /// 啟動鍵旁 ▾ 選的伺服器：啟動並直接加入（只這一次，不改設定）。
     [RelayCommand] Task LaunchToServer(string address) =>
         SelectedInstance is null || string.IsNullOrWhiteSpace(address)
@@ -346,6 +356,10 @@ public partial class MainViewModel : ObservableObject
     async Task RunLaunch(Guid instanceId, Guid? accountOverride, string? server = null)
     {
         if (IsBusy) { Status = "正在啟動中，請稍候…"; return; }
+        // 插件事件：只給名稱、版本、載入器（有 hooks 權限且訂閱了的插件才會收到）
+        if (Instances.FirstOrDefault(i => i.Id == instanceId) is { } launching)
+            (Application.Current.MainWindow as MainWindow)?.Plugins.Emit("instance.launch", new System.Text.Json.Nodes.JsonObject
+            { ["name"] = launching.Name, ["mcVersion"] = launching.McVersion, ["loader"] = launching.Loader.ToString() });
         IsBusy = true; ProgressPercent = 0;
         try
         {

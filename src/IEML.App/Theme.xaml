@@ -260,7 +260,7 @@
                     <GradientStop Color="#00FFFFFF" Offset="0"/><GradientStop Color="#66FFFFFF" Offset="0.5"/><GradientStop Color="#00FFFFFF" Offset="1"/>
                   </LinearGradientBrush>
                 </Border.Background>
-                <Border.RenderTransform><TranslateTransform x:Name="ShimmerTt" X="-70"/></Border.RenderTransform>
+                <Border.RenderTransform><TranslateTransform X="-70"/></Border.RenderTransform>
               </Border>
             </local:SkinBorder>
           </Grid>
@@ -270,7 +270,7 @@
             </DataTrigger>
             <EventTrigger RoutedEvent="FrameworkElement.Loaded">
               <BeginStoryboard><Storyboard RepeatBehavior="Forever">
-                <DoubleAnimation Storyboard.TargetName="ShimmerTt" Storyboard.TargetProperty="X" From="-70" To="340" Duration="0:0:1.4"/>
+                <DoubleAnimation Storyboard.TargetName="Shimmer" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" From="-70" To="340" Duration="0:0:1.4"/>
               </Storyboard></BeginStoryboard>
             </EventTrigger>
           </ControlTemplate.Triggers>
