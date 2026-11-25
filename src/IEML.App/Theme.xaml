@@ -252,6 +252,14 @@
       <Setter.Value>
         <ControlTemplate TargetType="ProgressBar">
           <Grid>
+            <!-- 流光動畫的 EventTrigger 必須放在範本內的元素上（不能放在 ControlTemplate.Triggers），否則找不到 Shimmer 這個名稱 -->
+            <Grid.Triggers>
+              <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                <BeginStoryboard><Storyboard RepeatBehavior="Forever">
+                  <DoubleAnimation Storyboard.TargetName="Shimmer" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" From="-70" To="340" Duration="0:0:1.4"/>
+                </Storyboard></BeginStoryboard>
+              </EventTrigger>
+            </Grid.Triggers>
             <local:SkinBorder x:Name="PART_Track" Slot="progress_track" Background="#FF2A2A2A" CornerRadius="3"/>
             <local:SkinBorder x:Name="PART_Indicator" Slot="progress_fill" HorizontalAlignment="Left" Background="{DynamicResource AccentBrush}" CornerRadius="3" ClipToBounds="True">
               <Border x:Name="Shimmer" Width="70" HorizontalAlignment="Left" IsHitTestVisible="False">
@@ -268,11 +276,6 @@
             <DataTrigger Binding="{Binding HasImage, ElementName=PART_Indicator}" Value="True">
               <Setter TargetName="Shimmer" Property="Visibility" Value="Collapsed"/>
             </DataTrigger>
-            <EventTrigger RoutedEvent="FrameworkElement.Loaded">
-              <BeginStoryboard><Storyboard RepeatBehavior="Forever">
-                <DoubleAnimation Storyboard.TargetName="Shimmer" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" From="-70" To="340" Duration="0:0:1.4"/>
-              </Storyboard></BeginStoryboard>
-            </EventTrigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>

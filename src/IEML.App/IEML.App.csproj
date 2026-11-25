@@ -8,8 +8,8 @@
     <RootNamespace>IEML.App</RootNamespace>
     <AssemblyName>InnovationEasyMinecraftLauncher</AssemblyName>
     <ApplicationIcon>app.ico</ApplicationIcon>
-    <Version>1.3.2</Version>
-    <InformationalVersion>1.3.2</InformationalVersion>
+    <Version>1.3.4</Version>
+    <InformationalVersion>1.3.4</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
   <ItemGroup>
