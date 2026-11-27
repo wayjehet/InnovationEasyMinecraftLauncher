@@ -3,27 +3,103 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Foreground="{DynamicResource TextBrush}">
   <UserControl.Resources>
-    <ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="PageStyles.xaml"/></ResourceDictionary.MergedDictionaries></ResourceDictionary>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries><ResourceDictionary Source="PageStyles.xaml"/></ResourceDictionary.MergedDictionaries>
+
+      <!-- 下拉清單裡的每一列有「路徑」與「⋯」；收合時（選取框）只顯示名稱。
+           判斷方式：選取框裡的內容不在 ComboBoxItem 底下，找不到祖先＝收合狀態。 -->
+      <Style x:Key="DropdownOnlyText" TargetType="TextBlock">
+        <Style.Triggers>
+          <DataTrigger Binding="{Binding FullPath}" Value="">
+            <Setter Property="Visibility" Value="Collapsed"/>
+          </DataTrigger>
+          <DataTrigger Binding="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType=ComboBoxItem}}" Value="{x:Null}">
+            <Setter Property="Visibility" Value="Collapsed"/>
+          </DataTrigger>
+        </Style.Triggers>
+      </Style>
+      <Style x:Key="DropdownOnlyButton" TargetType="Button" BasedOn="{StaticResource GhostButton}">
+        <Style.Triggers>
+          <DataTrigger Binding="{Binding HasMenu}" Value="False">
+            <Setter Property="Visibility" Value="Collapsed"/>
+          </DataTrigger>
+          <DataTrigger Binding="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType=ComboBoxItem}}" Value="{x:Null}">
+            <Setter Property="Visibility" Value="Collapsed"/>
+          </DataTrigger>
+        </Style.Triggers>
+      </Style>
+    </ResourceDictionary>
   </UserControl.Resources>
-  <DockPanel Height="340">
-    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-      <Button Content="新增實例" Click="Add_Click" Padding="10,5" Margin="0,0,6,0"/>
-      <Button Content="刪除實例" Command="{Binding DeleteInstanceCommand}" Padding="10,5" Margin="0,0,6,0"/>
-      <Button Content="選擇" Click="Ok_Click" Width="80" Padding="0,5"/>
-    </StackPanel>
-    <ListBox ItemsSource="{Binding Instances}" SelectedItem="{Binding SelectedInstance}" MouseDoubleClick="List_DoubleClick">
-      <ListBox.ItemTemplate>
-        <DataTemplate>
-          <StackPanel Margin="2,4">
-            <TextBlock Text="{Binding Name}" FontWeight="Bold"/>
-            <StackPanel Orientation="Horizontal">
-              <TextBlock Text="{Binding McVersion}" Foreground="{DynamicResource MutedBrush}"/>
-              <TextBlock Text="  ·  " Foreground="{DynamicResource MutedBrush}"/>
-              <TextBlock Text="{Binding Loader}" Foreground="{DynamicResource MutedBrush}"/>
-            </StackPanel>
-          </StackPanel>
-        </DataTemplate>
-      </ListBox.ItemTemplate>
-    </ListBox>
-  </DockPanel>
+
+  <Grid Height="340">
+    <DockPanel>
+      <!-- 目錄篩選：下拉清單是獨立的彈出視窗，可以超出這個對話框，所以路徑不用擔心被裁掉 -->
+      <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+        <TextBlock Text="目錄" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="{DynamicResource MutedBrush}"/>
+        <ComboBox x:Name="RootBox" SelectionChanged="RootBox_SelectionChanged" MaxDropDownHeight="260">
+          <ComboBox.ItemTemplate>
+            <DataTemplate>
+              <DockPanel LastChildFill="True">
+                <Button DockPanel.Dock="Right" Content="⋯" Click="RootMenu_Click" Padding="9,0" Margin="12,0,0,0"
+                        VerticalAlignment="Center" ToolTip="管理這個目錄" Style="{StaticResource DropdownOnlyButton}"/>
+                <StackPanel VerticalAlignment="Center">
+                  <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis"/>
+                  <TextBlock Text="{Binding FullPath}" FontSize="11" Foreground="{DynamicResource MutedBrush}"
+                             TextTrimming="CharacterEllipsis" MaxWidth="340" ToolTip="{Binding FullPath}"
+                             Style="{StaticResource DropdownOnlyText}"/>
+                </StackPanel>
+              </DockPanel>
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+      </DockPanel>
+
+      <TextBlock x:Name="Notice" DockPanel.Dock="Top" Visibility="Collapsed" TextWrapping="Wrap" FontSize="12"
+                 Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,6"/>
+
+      <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+        <Button Content="新增實例" Click="Add_Click" Padding="10,5" Margin="0,0,6,0"/>
+        <Button Content="刪除實例" Command="{Binding DeleteInstanceCommand}" Padding="10,5" Margin="0,0,6,0"/>
+        <Button Content="選擇" Click="Ok_Click" Width="80" Padding="0,5"/>
+      </StackPanel>
+
+      <Grid>
+        <ListBox x:Name="InstList" SelectionChanged="InstList_SelectionChanged" MouseDoubleClick="List_DoubleClick">
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <StackPanel Margin="2,4">
+                <TextBlock Text="{Binding Name}" FontWeight="Bold"/>
+                <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis"/>
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+        <TextBlock x:Name="EmptyText" Visibility="Collapsed" IsHitTestVisible="False" HorizontalAlignment="Center"
+                   VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" Foreground="{DynamicResource MutedBrush}"/>
+      </Grid>
+    </DockPanel>
+
+    <!-- 目錄管理（點下拉清單某一列的「⋯」開啟）。做在面板裡面，不用 Dialogs：
+         Dialogs 一次只能開一個對話框，在這裡呼叫會把整個「實例選擇」關掉。 -->
+    <Border x:Name="Sheet" Visibility="Collapsed" Background="{DynamicResource PanelBg}" BorderBrush="{DynamicResource LineBrush}"
+            BorderThickness="1" CornerRadius="5" Padding="14">
+      <StackPanel VerticalAlignment="Center">
+        <TextBlock x:Name="SheetTitle" FontWeight="Bold" FontSize="15" TextTrimming="CharacterEllipsis"/>
+        <TextBlock x:Name="SheetPath" FontSize="11" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,12"/>
+        <TextBlock x:Name="SheetConfirmText" Visibility="Collapsed" TextWrapping="Wrap" Margin="0,0,0,12"/>
+
+        <StackPanel x:Name="SheetMain">
+          <Button x:Name="SheetUse" Content="設為使用中（新實例建立在這裡）" Click="SheetUse_Click" Height="32" Margin="0,0,0,6"/>
+          <Button Content="開啟資料夾" Click="SheetOpen_Click" Height="32" Margin="0,0,0,6" Style="{StaticResource GhostButton}"/>
+          <Button x:Name="SheetRemove" Content="從清單移除…" Click="SheetRemove_Click" Height="32" Margin="0,0,0,6" Style="{StaticResource GhostButton}"/>
+          <Button Content="返回" Click="SheetClose_Click" Height="32" Style="{StaticResource GhostButton}"/>
+        </StackPanel>
+
+        <StackPanel x:Name="SheetConfirm" Visibility="Collapsed">
+          <Button Content="確認移除" Click="SheetConfirmRemove_Click" Height="32" Margin="0,0,0,6"/>
+          <Button Content="取消" Click="SheetClose_Click" Height="32" Style="{StaticResource GhostButton}"/>
+        </StackPanel>
+      </StackPanel>
+    </Border>
+  </Grid>
 </UserControl>

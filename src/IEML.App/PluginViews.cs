@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using IEML.Core.Plugins;
 namespace IEML.App;
 
@@ -25,6 +26,9 @@ public sealed class PluginPageView : UserControl
     readonly PluginRuntime _rt;
     readonly string _pageId;
     readonly Dictionary<string, Func<JsonNode?>> _getters = new();
+    readonly Dictionary<string, TextBox> _inputs = new();
+    readonly DispatcherTimer _refreshTimer = new() { Interval = TimeSpan.FromMilliseconds(150) };   // 合併短時間內的多次通知（串流每個事件一次）
+    JsonObject? _keep;      // 自動重畫時：保留使用者目前輸入的值，不被插件的預設值蓋掉
     int _count;
 
     public PluginPageView(PluginRuntime rt, string pageId)
@@ -32,12 +36,33 @@ public sealed class PluginPageView : UserControl
         _rt = rt; _pageId = pageId;
         PluginUi.MergeStyles(this);
         SetResourceReference(ForegroundProperty, "TextBrush");
-        Loaded += (_, _) => Render(new JsonObject());
+        _refreshTimer.Tick += (_, _) => { _refreshTimer.Stop(); if (IsLoaded && _rt.Loaded) Refresh(); };
+        Loaded += (_, _) =>
+        {
+            _rt.PageInvalidated -= OnInvalidated; _rt.PageInvalidated += OnInvalidated;
+            Render(new JsonObject());
+        };
+        Unloaded += (_, _) => { _rt.PageInvalidated -= OnInvalidated; _refreshTimer.Stop(); };
+    }
+
+    void OnInvalidated() => Dispatcher.InvokeAsync(() => { if (!_refreshTimer.IsEnabled) _refreshTimer.Start(); });
+
+    /// 非同步 callback 之後的自動重畫：保留捲動位置、輸入框內容與游標。
+    void Refresh()
+    {
+        var values = Collect();
+        var offset = (Content as ScrollViewer)?.VerticalOffset ?? 0;
+        string? focusId = null; int caret = 0;
+        foreach (var (k, tb) in _inputs) if (tb.IsKeyboardFocused) { focusId = k; caret = tb.CaretIndex; }
+        _keep = values;
+        try { Render(values); } finally { _keep = null; }
+        if (Content is ScrollViewer sv) { sv.UpdateLayout(); sv.ScrollToVerticalOffset(offset); }
+        if (focusId is not null && _inputs.TryGetValue(focusId, out var nt)) { nt.Focus(); nt.CaretIndex = Math.Min(caret, nt.Text.Length); }
     }
 
     void Render(JsonObject values)
     {
-        _getters.Clear(); _count = 0;
+        _getters.Clear(); _inputs.Clear(); _count = 0;
         var root = new StackPanel { Margin = new Thickness(8) };
         root.Children.Add(PluginUi.Text($"此頁面由插件「{_rt.Plugin.Manifest.Name}」提供（在沙盒中執行）", 11, muted: true));
 
@@ -90,16 +115,20 @@ public sealed class PluginPageView : UserControl
                 var p = new StackPanel { Margin = new Thickness(0, 4, 0, 4) };
                 var label = J.S(J.Get(n, "label"));
                 if (!string.IsNullOrEmpty(label)) p.Children.Add(PluginUi.Text(J.Clip(label, 100), 12, muted: true));
-                var tb = new TextBox { Text = J.Clip(J.S(J.Get(n, "value")), 2000), MaxLength = 2000, MaxWidth = 420, HorizontalAlignment = HorizontalAlignment.Left, MinWidth = 240 };
+                var init = J.Clip(J.S(J.Get(n, "value")), 2000);
+                if (_keep is not null && id.Length > 0 && _keep.TryGetPropertyValue(id, out var kept) && J.S(kept) is { } keptText) init = keptText;
+                var tb = new TextBox { Text = init, MaxLength = 2000, MaxWidth = 420, HorizontalAlignment = HorizontalAlignment.Left, MinWidth = 240 };
                 p.Children.Add(tb);
-                if (id.Length > 0) _getters[id] = () => JsonValue.Create(tb.Text);
+                if (id.Length > 0) { _getters[id] = () => JsonValue.Create(tb.Text); _inputs[id] = tb; }
                 return p;
             }
 
             case "checkbox":
             {
                 var id = J.Clip(J.S(J.Get(n, "id")), 40);
-                var cb = new CheckBox { Content = J.Clip(J.S(J.Get(n, "label")), 200), IsChecked = J.B(J.Get(n, "value")), Margin = new Thickness(0, 4, 0, 4) };
+                var chk = J.B(J.Get(n, "value"));
+                if (_keep is not null && id.Length > 0 && _keep.TryGetPropertyValue(id, out var keptChk) && keptChk is JsonValue kv && kv.TryGetValue<bool>(out var kb)) chk = kb;
+                var cb = new CheckBox { Content = J.Clip(J.S(J.Get(n, "label")), 200), IsChecked = chk, Margin = new Thickness(0, 4, 0, 4) };
                 if (id.Length > 0) _getters[id] = () => JsonValue.Create(cb.IsChecked == true);
                 return cb;
             }
@@ -217,11 +246,70 @@ public sealed class PluginsPage : UserControl
                 {
                     var (text, danger) = Perm.All[perm];
                     var label = (danger ? "⚠ " : "") + text + (perm == Perm.NetHttp ? $"　網域：{string.Join("、", m.NetworkHosts)}" : "");
+                    if (perm == Perm.Exec && m.Exec.Count > 0)
+                        label += "　程式：" + string.Join("、", m.Exec.Select(d => d.Id));
                     var cb = new CheckBox { Content = label, IsChecked = st.Granted.Contains(perm), Margin = new Thickness(8, 3, 0, 3) };
                     if (danger) cb.Foreground = System.Windows.Media.Brushes.Orange;
                     var pc = perm;
-                    cb.Click += (_, _) => _mgr.SetGranted(id, pc, cb.IsChecked == true);
+                    cb.Click += async (_, _) =>
+                    {
+                        if (pc == Perm.Exec && cb.IsChecked == true)
+                        {
+                            // exec 要先同意協議；同意綁定插件版本與程式清單，任何一項變動都要重新同意
+                            var list = string.Join("\n", m.Exec.Select(d => $"• {d.Id}（{d.File}）" + (d.Description.Length > 0 ? "：" + d.Description : "")));
+                            var ok = await Dialogs.ConfirmAsync("允許插件執行外部程式",
+                                $"插件「{m.Name}」要求能執行下列程式：\n{list}\n\n" +
+                                "• 這些程式會以你的 Windows 權限執行，沙盒管不到它們，可能讀寫你的檔案或連網。\n" +
+                                "• 每次執行前，啟動器都會再問你一次。\n• 程式檔案被更換（雜湊不符）時會拒絕執行。\n• 插件更新或程式清單變動後，需要重新同意。",
+                                "我了解風險，允許", "取消");
+                            if (!ok) { cb.IsChecked = false; return; }
+                            _mgr.AcceptExec(id);
+                            return;
+                        }
+                        _mgr.SetGranted(id, pc, cb.IsChecked == true);
+                    };
                     body.Children.Add(cb);
+                }
+            }
+
+            // 金鑰：由使用者填入，主程式保管；插件只能指名使用，讀不到內容
+            foreach (var sd in m.Secrets)
+            {
+                var hasKey = _mgr.HasSecret(id, sd.Name);
+                body.Children.Add(PluginUi.Text($"金鑰：{sd.Label}　只會送往 {sd.Host}，插件讀不到內容　狀態：{(hasKey ? "已設定" : "未設定")}", 12));
+                var krow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(8, 2, 0, 6) };
+                var pb = new PasswordBox { Width = 260, MaxLength = 4000, Margin = new Thickness(0, 0, 8, 0) };
+                var save = new Button { Content = "儲存", Padding = new Thickness(12, 4, 12, 4), Margin = new Thickness(0, 0, 8, 0) };
+                var clear = new Button { Content = "清除", Padding = new Thickness(12, 4, 12, 4) };
+                clear.SetResourceReference(StyleProperty, "GhostButton");
+                var secretName = sd.Name;
+                save.Click += (_, _) =>
+                {
+                    try { _mgr.SetSecret(id, secretName, pb.Password); pb.Clear(); _mgr.RaiseChanged(); }
+                    catch (Exception ex) { _ = Dialogs.InfoAsync("無法儲存金鑰", ex.Message); }
+                };
+                clear.Click += (_, _) =>
+                {
+                    try { _mgr.SetSecret(id, secretName, ""); _mgr.RaiseChanged(); }
+                    catch (Exception ex) { _ = Dialogs.InfoAsync("無法清除金鑰", ex.Message); }
+                };
+                krow.Children.Add(pb); krow.Children.Add(save); krow.Children.Add(clear);
+                body.Children.Add(krow);
+            }
+
+            // 釘選到「更多」：插件只能申請，要你核准才會出現
+            if (m.Contributes.Pins.Count > 0)
+            {
+                body.Children.Add(PluginUi.Text("這個插件想在「更多」頁新增入口（核准後才會出現）：", 12, muted: true));
+                foreach (var pin in m.Contributes.Pins)
+                {
+                    var approved = PinPolicy.IsApproved(st.PinApprovals, pin);
+                    var changed = st.PinApprovals.ContainsKey(pin.Id) && !approved;
+                    var pinLabel = (pin.Icon.Length > 0 ? pin.Icon + " " : "") + $"{pin.Title}（{m.Name}）　→ 開啟頁面「{pin.Page}」" + (changed ? "　⚠ 內容已變更，需要重新核准" : "");
+                    var pcb = new CheckBox { Content = pinLabel, IsChecked = approved, Margin = new Thickness(8, 3, 0, 3) };
+                    var pinId = pin.Id;
+                    pcb.Click += (_, _) => _mgr.SetPinApproved(id, pinId, pcb.IsChecked == true);
+                    body.Children.Add(pcb);
                 }
             }
 

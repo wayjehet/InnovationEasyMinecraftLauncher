@@ -368,7 +368,10 @@ public partial class MainWindow : Window
         if (ToggleNav("more")) return;
         ShowStage("更多工具", "伺服器、遊戲日誌、種子地圖、地圖、帳號與小遊戲");
         // 固定 2 欄 × 3 列，順序固定，不隨視窗大小跑位；最後一格預留
-        var grid = new System.Windows.Controls.Primitives.UniformGrid { Columns = 2, Rows = 4, Height = 4 * 84, VerticalAlignment = VerticalAlignment.Top };
+        // 內建 7 項 ＋ 使用者核准過的插件釘選入口（每格都會標明來源插件）
+        var pins = Plugins.ResolvePins().Visible;
+        int rows = Math.Max(4, (7 + pins.Count + 1) / 2);
+        var grid = new System.Windows.Controls.Primitives.UniformGrid { Columns = 2, Rows = rows, Height = rows * 84, VerticalAlignment = VerticalAlignment.Top };
         void Add(string t, string d, ICommand cmd)
         {
             var b = new Button
@@ -398,9 +401,17 @@ public partial class MainWindow : Window
         Add("插件", "沙盒插件：頁面、彈窗、功能接入（預設全部停用）",
             new CommunityToolkit.Mvvm.Input.RelayCommand(() =>
                 ShowPage("插件", "每個插件預設停用、沒有權限，逐項授權", new PluginsPage(Plugins), push: true)));
+        foreach (var pin in pins)
+        {
+            var captured = pin;
+            Add((pin.Icon.Length > 0 ? pin.Icon + " " : "") + pin.Label, $"由插件「{pin.PluginName}」提供",
+                new CommunityToolkit.Mvvm.Input.RelayCommand(() => Plugins.OpenPin(captured)));
+        }
         StageScroll.Visibility = Visibility.Collapsed;
         StageHost.Visibility = Visibility.Visible;
-        StageHost.Content = grid;
+        StageHost.Content = rows > 4
+            ? new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = grid }
+            : grid;
         Motion.Stagger(grid);
     }
 

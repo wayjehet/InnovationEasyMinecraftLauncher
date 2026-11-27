@@ -13,8 +13,10 @@ public sealed class PluginManager
 {
     readonly MainViewModel _vm;
     readonly PluginStore _store = new();
-    static readonly HttpClient Http = new(new HttpClientHandler { AllowAutoRedirect = false })   // 不跟轉址：避免被導到沒允許的網域
-    { Timeout = TimeSpan.FromSeconds(10) };
+    readonly PluginSecretVault _vault;
+
+    /// 金鑰保管庫（PluginHttpClient 送出請求時用；插件本身讀不到內容）。
+    public ISecretVault Vault => _vault;
 
     public List<InstalledPlugin> Installed { get; private set; } = new();
     public Dictionary<string, PluginRuntime> Running { get; } = new();
@@ -24,7 +26,7 @@ public sealed class PluginManager
     public PluginManager(MainViewModel vm)
     {
         _vm = vm;
-        Http.DefaultRequestHeaders.UserAgent.ParseAdd("IEML-Plugin/1.0");
+        _vault = new PluginSecretVault(id => Installed.FirstOrDefault(p => p.Manifest.Id == id)?.Manifest);
     }
 
     public void RaiseChanged() => Application.Current.Dispatcher.BeginInvoke(() => Changed?.Invoke());
@@ -48,6 +50,13 @@ public sealed class PluginManager
         {
             var st = _store.StateOf(p.Manifest.Id);
             st.Granted.RemoveAll(g => !p.Manifest.Permissions.Contains(g));   // 新增的權限一律不會自動授權
+            PinPolicy.PruneStale(st.PinApprovals, p.Manifest.Contributes);    // 釘選入口內容變了（或被移除）→ 核准失效
+            if (st.Granted.Contains(Perm.Exec) && !ExecPolicy.IsConsentValid(st.ExecAgreement, p.Manifest.Version, p.Manifest.Exec))
+            {
+                st.Granted.Remove(Perm.Exec);                                 // 協議／插件版本／exec 清單變了 → 要重新同意
+                st.ExecAgreement = null;
+                Log(p.Manifest.Id, "exec 的同意紀錄已失效（插件更新或清單變更），需要重新同意。");
+            }
             if (st.Enabled) StartPlugin(p);
         }
         _store.Save();
@@ -80,9 +89,63 @@ public sealed class PluginManager
         var p = Installed.FirstOrDefault(x => x.Manifest.Id == id);
         if (p is null || !p.Manifest.Permissions.Contains(perm)) return;
         var st = _store.StateOf(id);
+        if (perm == Perm.Exec && on) return;       // exec 只能走 AcceptExec（要先讓使用者同意協議）
         st.Granted.Remove(perm);
         if (on) st.Granted.Add(perm);
+        if (perm == Perm.Exec) st.ExecAgreement = null;   // 撤銷 exec ＝ 同意一併作廢
         _store.Save();
+    }
+
+    /// 使用者在協議視窗按了「允許」：記錄同意（綁協議版本＋插件版本＋exec 清單雜湊）並授權 exec。
+    public void AcceptExec(string id)
+    {
+        var p = Installed.FirstOrDefault(x => x.Manifest.Id == id);
+        if (p is null || p.Error is not null || !p.Manifest.Permissions.Contains(Perm.Exec)) return;
+        var st = _store.StateOf(id);
+        st.ExecAgreement = ExecPolicy.CreateConsent(p.Manifest.Version, p.Manifest.Exec);
+        if (!st.Granted.Contains(Perm.Exec)) st.Granted.Add(Perm.Exec);
+        _store.Save();
+    }
+
+    // ───────────── 釘選到「更多」 ─────────────
+    /// 核准／取消核准某個釘選入口（核准綁內容雜湊；插件更新後內容變了就要重新核准）。
+    public void SetPinApproved(string pluginId, string pinId, bool on)
+    {
+        var p = Installed.FirstOrDefault(x => x.Manifest.Id == pluginId);
+        var pin = p?.Manifest.Contributes.Pins.FirstOrDefault(x => x.Id == pinId);
+        if (p is null || pin is null) return;
+        var st = _store.StateOf(pluginId);
+        if (on) PinPolicy.Approve(st.PinApprovals, pin); else PinPolicy.Revoke(st.PinApprovals, pinId);
+        _store.Save();
+        RaiseChanged();
+    }
+
+    /// 現在該顯示在「更多」頁的插件入口（已啟用、已授權 ui.page、已核准、頁面已註冊）。
+    public PinResolution ResolvePins()
+    {
+        var inputs = Installed
+            .Where(p => p.Error is null && p.Manifest.Contributes.Pins.Count > 0)
+            .Select(p =>
+            {
+                var st = _store.StateOf(p.Manifest.Id);
+                return new PluginContribInput(p.Manifest.Id, p.Manifest.Name, st.Enabled, st.Granted, p.Manifest.Contributes, st.PinApprovals);
+            }).ToList();
+        return PinResolver.Resolve(inputs, (pid, page) => Running.TryGetValue(pid, out var rt) && rt.Loaded && rt.Pages.ContainsKey(page));
+    }
+
+    public void OpenPin(ResolvedPin pin)
+    {
+        if (Running.TryGetValue(pin.PluginId, out var rt)) OpenPageDeferred(rt, pin.PageId);
+    }
+
+    // ───────────── 金鑰（使用者在插件設定頁填；插件讀不到） ─────────────
+    public bool HasSecret(string pluginId, string name) => _vault.Has(pluginId, name);
+
+    public void SetSecret(string pluginId, string name, string value)
+    {
+        var p = Installed.FirstOrDefault(x => x.Manifest.Id == pluginId);
+        if (p is null || !p.Manifest.Secrets.Any(s => s.Name == name)) throw new ArgumentException("這個插件沒有宣告這把金鑰");
+        _vault.Set(pluginId, name, value);
     }
 
     public void OpenFolder()
@@ -140,28 +203,16 @@ public sealed class PluginManager
     public string GetToken() => _vm.GetSelectedAccountToken()
         ?? throw new InvalidOperationException("目前選的不是正版帳號，或取得權杖失敗／逾時。");
 
-    /// net.http：只允許 HTTPS、manifest 列出的網域（完全相符）、不跟轉址、回應上限 1 MB、10 秒。會阻塞介面執行緒到完成（原型的取捨）。
+    /// 1.0 的同步 http.get：現在改走 PluginHttpClient（同樣只允許 https、manifest 網域、不跟轉址，
+    /// 並且連線當下檢查實際 IP，擋掉 localhost／內網）。會阻塞介面執行緒到完成（1.0 的取捨；2.0 請用 ieml.http.request）。
     public JsonNode HttpGet(PluginManifest m, string url)
     {
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
-            throw new ArgumentException("只允許 https 網址");
-        if (!m.NetworkHosts.Contains(uri.Host.ToLowerInvariant()))
-            throw new PluginDeniedException($"網域 {uri.Host} 不在這個插件的 networkHosts 內");
-        var task = Task.Run(async () =>
-        {
-            using var resp = await Http.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead);
-            await using var s = await resp.Content.ReadAsStreamAsync();
-            var buf = new MemoryStream();
-            var chunk = new byte[8192]; int n;
-            while ((n = await s.ReadAsync(chunk)) > 0)
-            {
-                buf.Write(chunk, 0, n);
-                if (buf.Length > 1024 * 1024) throw new InvalidOperationException("回應超過 1 MB");
-            }
-            return new JsonObject { ["status"] = (int)resp.StatusCode, ["body"] = Encoding.UTF8.GetString(buf.ToArray()) };
-        });
-        if (!task.Wait(TimeSpan.FromSeconds(12))) throw new TimeoutException("請求逾時");
-        return task.Result;
+        var spec = new HttpRequestSpec { Method = "GET", Url = url, TimeoutMs = 10_000 };
+        var task = Task.Run(() => PluginHttpClient.SendAsync(m.Id, m.NetworkHosts, spec, null, null, CancellationToken.None));
+        try { if (!task.Wait(TimeSpan.FromSeconds(12))) throw new TimeoutException("請求逾時"); }
+        catch (AggregateException ae) { throw ae.InnerException ?? ae; }
+        var r = task.Result;
+        return new JsonObject { ["status"] = r.Status, ["body"] = r.Body };
     }
 
     // ───────────── 範例插件 ─────────────

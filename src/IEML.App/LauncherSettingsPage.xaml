@@ -20,10 +20,9 @@
       <TextBlock x:Name="KeyStatus" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,18"/>
 
       <TextBlock Text="實例目錄" FontWeight="Bold" FontSize="15"/>
-      <TextBlock Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,6"
-                 Text="可以添加多個資料夾（例如放在別顆硬碟）。每個目錄裡的實例都會顯示在實例清單；新實例建立在「使用中」的目錄。移除目錄只是不再顯示，不會刪除任何檔案。"/>
-      <StackPanel x:Name="RootsHost"/>
-      <Button Content="＋ 新增實例目錄…" Click="AddRoot_Click" HorizontalAlignment="Left" Padding="12,5" Margin="0,6,0,18"/>
+      <TextBlock Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,2,0,4"
+                 Text="實例目錄的新增、移除、切換與開啟，已移到「實例選擇」裡（上方的「目錄」下拉選單）。"/>
+      <Button Content="開啟實例選擇…" Command="{Binding OpenInstancePickerCommand}" HorizontalAlignment="Left" Padding="12,5" Margin="0,6,0,18"/>
 
       <TextBlock Text="外觀與素材" FontWeight="Bold" FontSize="15"/>
       <Button Content="重設快捷卡片位置" Command="{Binding ResetCardLayoutCommand}" HorizontalAlignment="Left" Padding="12,5" Margin="0,6,0,10"/>

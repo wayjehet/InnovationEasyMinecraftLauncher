@@ -702,3 +702,24 @@ Update 46 的回合制地城整個換掉（`RoguelikeGame.cs`、`RoguelikePage.c
 - **修正**：目標改成有名字的 **UIElement**（`Shimmer` 這個 Border），用屬性路徑 `(UIElement.RenderTransform).(TranslateTransform.X)` 動畫，並移除 transform 上的 `x:Name`。
 - **其他同名寫法**：`Theme.xaml` 的 `ArtButton`／`CardButton`（`Tt`、`Sc`）與 `NavButton`（`NavSc`）也是以名稱指定 Freezable 目標，但它們用的是**屬性觸發器**（`IsMouseOver`／`IsPressed` 的 `EnterActions`／`ExitActions`），機制不同，`Controls.xaml` 裡也有同樣寫法；滑過按鈕若也出現「找不到名稱」，改成同樣的屬性路徑寫法即可（例如 `Root` 的 `(UIElement.RenderTransform).(TransformGroup.Children)[1].(TranslateTransform.Y)`）。
 - 待實測：啟動不再跳錯誤；進度條在有進度時流光掃過；滑過按鈕、右欄圖示動畫正常。建議發 1.3.3 修正版並回覆 issue。
+
+
+## 網頁版 Claude 追加：實例目錄管理搬進「實例選擇」＋插件 2.0 本體檔（未編譯）
+- 實例目錄的新增／設為使用中／開啟／移除，從「啟動器設定」搬到「實例選擇」面板上方的「目錄」下拉（⋯ 管理面板）；設定頁只留一個「開啟實例選擇…」按鈕。
+  改動：InstancePickerPanel.xaml(.cs)、LauncherSettingsPage.xaml(.cs)。
+- 新增（獨立檔、尚未接進 PluginRuntime／PluginGate／PluginManifest）於 src/IEML.Core/Plugins/：
+  PluginHttp.cs（非同步 HTTP／SSE／金鑰保管／擋內網）、PluginExec.cs（exec 權限）、PluginContrib.cs（contributes.pins 釘選頁面到「更多」）。
+- 已接線（未編譯、未實測，請先 `dotnet build`）：
+  - PluginModel.cs：`Perm.Exec`、`BuiltInTitles`、manifest 新欄位 `apiVersion／secrets／exec／contributes` 與驗證、`PluginState.PinApprovals／ExecAgreement`。
+  - PluginGate.cs：登記 `http.request／http.stream／exec.run`（apiVersion ≥ 2 才可呼叫；exec 另外檢查同意紀錄）。
+  - PluginSecrets.cs（新）：`PluginSecretVault`（DPAPI，`plugin-secrets.json`）。
+  - PluginRuntime.cs：三個新 case＋Prelude 的 `ieml.http.request／stream`、`ieml.exec.run`；回呼支援 `keep`（串流資料）。
+  - PluginManager.cs：保管庫、`AcceptExec`、`SetPinApproved`、`ResolvePins／OpenPin`、`SetSecret`；`http.get` 改走 `PluginHttpClient`。
+  - PluginViews.cs：插件卡片新增金鑰輸入、釘選核准、exec 同意視窗。MainWindow.xaml.cs：「更多」頁顯示已核准的插件入口。
+- 實測重點：SSE 逐字回呼是否回到介面執行緒；exec 同意／每次確認流程；釘選核准後「更多」頁入口與開頁；舊 1.0 插件（hello-sample）是否照常運作。
+
+## 網頁版 Claude 追加：彈窗開放＋callback 後自動重畫（未編譯）
+- 彈窗（ui.confirm／info／choose）不再需要權限（PluginGate.Methods 改為 null；`Perm.UiDialog` 保留供舊 manifest 相容）。
+  為防洗版：PluginRuntime.DialogQuota（同時 1 個、每分鐘 6 個）。
+- 非同步 callback 後自動重畫：PluginRuntime.PageInvalidated → PluginPageView（150 ms 合併；保留捲動位置、輸入框內容與游標）。
+- 實測重點：串流時畫面是否順、輸入框打字不被蓋掉、離開頁面後不再重畫、彈窗連點時的錯誤訊息。

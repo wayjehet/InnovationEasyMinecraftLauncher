@@ -23,9 +23,10 @@ public static class PluginGate
         ["ui.registerPage"] = Perm.UiPage,
         ["ui.openPage"] = Perm.UiPage,
         ["ui.toast"] = Perm.UiToast,
-        ["ui.confirm"] = Perm.UiDialog,
-        ["ui.info"] = Perm.UiDialog,
-        ["ui.choose"] = Perm.UiDialog,
+        // 彈窗已開放：不需要權限（標題固定加「插件「名稱」：」前綴；頻率與同時數量在 PluginRuntime 限制）。
+        ["ui.confirm"] = null,
+        ["ui.info"] = null,
+        ["ui.choose"] = null,
         ["storage.get"] = Perm.Storage,
         ["storage.set"] = Perm.Storage,
         ["storage.remove"] = Perm.Storage,
@@ -33,7 +34,13 @@ public static class PluginGate
         ["accounts.list"] = Perm.AccountsRead,
         ["account.getToken"] = Perm.TokenRead,
         ["http.get"] = Perm.NetHttp,
+        ["http.request"] = Perm.NetHttp,      // 2.0
+        ["http.stream"] = Perm.NetHttp,       // 2.0
+        ["exec.run"] = Perm.Exec,             // 2.0
     };
+
+    /// 只有 apiVersion ≥ 2 的插件能呼叫的方法。
+    static readonly HashSet<string> V2Only = new() { "http.request", "http.stream", "exec.run" };
 
     /// 這個插件現在是否真的擁有某權限（宣告 ∩ 已授權 ∩ 已啟用）。
     public static bool Has(PluginManifest manifest, PluginState state, string perm) =>
@@ -43,8 +50,12 @@ public static class PluginGate
     {
         if (!state.Enabled) throw new PluginDeniedException("插件未啟用");
         if (!Methods.TryGetValue(method, out var need)) throw new PluginDeniedException($"未知的方法：{method}");
+        if (V2Only.Contains(method) && manifest.ApiVersion < 2) throw new PluginDeniedException($"{method} 需要 manifest 宣告 apiVersion ≥ 2");
         if (need is null) return;
         if (!manifest.Permissions.Contains(need)) throw new PluginDeniedException($"插件沒有在 manifest 宣告權限 {need}");
         if (!state.Granted.Contains(need)) throw new PluginDeniedException($"使用者尚未授權：{need}（到「更多 → 插件」勾選）");
+        // exec 另外要求「同意紀錄仍有效」：協議、插件版本、exec 清單任何一項變了都要重新同意。
+        if (method == "exec.run" && !ExecPolicy.IsConsentValid(state.ExecAgreement, manifest.Version, manifest.Exec))
+            throw new PluginDeniedException("exec 的同意紀錄已失效，請到「更多 → 插件」重新勾選 exec");
     }
 }
